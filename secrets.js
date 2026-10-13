@@ -5,5 +5,5 @@
  * Never push this file or the key to a public repository.
  */
 window.GOD_AI_SECRETS = {
-  OLLAMA_API_KEY: "c329c83c07054635afcd0d6af11c9c4c.R4fEHxf_MRB90Yi-4yyM9zpH"
+  OLLAMA_API_KEY: ""
 };
