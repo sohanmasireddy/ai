@@ -1,6 +1,0 @@
-Upstream project: @ybouane/liquidglass
-Version: 1.0.3
-
-The supplied upstream shader, capture, renderer, and defaults source files are retained.
-The only source addition is LiquidGlass.addGlassElement() to register message bubbles created after init().
-Runtime UI configuration copies the supplied demo #glass-fp2 config and changes only floating and cornerRadius.
