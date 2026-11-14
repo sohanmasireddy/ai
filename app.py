@@ -95,7 +95,7 @@ MODEL_LABELS = {
     "gpt-oss-20b": "GPT-OSS 20B",
     "gemma-4": "Gemma 4 26B A4B",
 }
-DEFAULT_MODEL_KEY = "granite"
+DEFAULT_MODEL_KEY = "gemma-4"
 WHISPER_MODEL = "@cf/openai/whisper"  # Used only for microphone transcription; never shown in the model selector.
 CLOUDFLARE_API = "https://api.cloudflare.com/client/v4"
 USER_AGENT = "AIv2/1.0 (web research assistant)"
@@ -1300,7 +1300,7 @@ if (
         else:
             result = chat_with_model(
                 value.get("messages") or [],
-                model_key=value.get("model", DEFAULT_MODEL_KEY),
+                model_key="gemma-4",
                 think_enabled=bool(value.get("think", False)),
                 reasoning_effort=value.get("reasoning_effort", "medium"),
             )
