@@ -166,6 +166,7 @@ export class LiquidGlass {
 	};
 
 	private readonly _onResize: () => void;
+	private readonly _onScroll: () => void;
 	private readonly _onPointerDown: (e: PointerEvent) => void;
 	private readonly _onPointerMove: (e: PointerEvent) => void;
 	private readonly _onPointerUp: (e: PointerEvent) => void;
@@ -203,6 +204,12 @@ export class LiquidGlass {
 		});
 
 		this._onResize = this._handleResize.bind(this);
+		// Native scrolling can be committed by the browser compositor between
+		// animation frames. Mark all panels dirty on the root's own scroll event
+		// so the library re-renders against the latest getBoundingClientRect().
+		this._onScroll = () => {
+			this._globalDirty = true;
+		};
 		this._onPointerDown = this._handlePointerDown.bind(this);
 		this._onPointerMove = this._handlePointerMove.bind(this);
 		this._onPointerUp = this._handlePointerUp.bind(this);
@@ -234,6 +241,7 @@ export class LiquidGlass {
 		await this._prewarmStaticCaptures();
 
 		window.addEventListener('resize', this._onResize);
+		this.root.addEventListener('scroll', this._onScroll, { passive: true });
 		this.root.addEventListener('pointerdown', this._onPointerDown);
 		window.addEventListener('pointermove', this._onPointerMove);
 		window.addEventListener('pointerup', this._onPointerUp);
@@ -289,6 +297,7 @@ export class LiquidGlass {
 		this.root.style.removeProperty('-webkit-user-select');
 
 		window.removeEventListener('resize', this._onResize);
+		this.root.removeEventListener('scroll', this._onScroll);
 		this.root.removeEventListener('pointerdown', this._onPointerDown);
 		window.removeEventListener('pointermove', this._onPointerMove);
 		window.removeEventListener('pointerup', this._onPointerUp);
