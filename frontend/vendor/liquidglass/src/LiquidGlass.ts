@@ -1147,7 +1147,12 @@ export class LiquidGlass {
 		} else {
 			this._sceneCtx.clearRect(0, 0, width, height);
 		}
-		this._sceneCtx.fillStyle = '#ffffff';
+		const rootBackground = getComputedStyle(this.root).backgroundColor;
+		const bodyBackground = getComputedStyle(document.body).backgroundColor;
+		const isTransparent = (value: string) => !value || value === 'transparent' || value === 'rgba(0, 0, 0, 0)';
+		this._sceneCtx.fillStyle = !isTransparent(rootBackground)
+			? rootBackground
+			: (!isTransparent(bodyBackground) ? bodyBackground : '#070b18');
 		this._sceneCtx.fillRect(0, 0, width, height);
 	}
 
