@@ -231,12 +231,12 @@
     .dropdown-chevron, .glass-dropdown-menu, .picker-trigger, #gemmaThinkToggle { transition: none !important; }
   }
 
-  /* Match the captured background to the viewport exactly. LiquidGlass adds
-     its own SHADOW_PAD around each panel; enlarging and offsetting this image
-     would shift the sampled scene relative to the visible page. */
+  /* Give LiquidGlass real background pixels outside the viewport. The fixed
+     bleed remains stationary while #scroller moves and adds a modest zoom. */
   #background-snapshot {
-    position: fixed; inset: 0; width: auto; height: auto; margin: 0;
-    overflow: hidden; z-index: 0; pointer-events: none;
+    position: fixed; inset: clamp(-72px, -4vw, -24px);
+    width: auto; height: auto; margin: 0; overflow: hidden;
+    z-index: 0; pointer-events: none;
   }
   #pageBackground {
     position: relative; display: block; width: 100%; height: 100%;
@@ -404,8 +404,15 @@
 
 <script src="./scripts/html2canvas.min.js"></script>
 <script src="./scripts/liquidGL.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "html-to-image": "https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/+esm"
+  }
+}
+</script>
 <script type="module">
-import { LiquidGlass } from "https://cdn.jsdelivr.net/npm/@ybouane/liquidglass@1.0.3/dist/index.js";
+import { LiquidGlass } from "./vendor/liquidglass/dist/index.js";
 
 
 
@@ -511,7 +518,6 @@ const VIDEO_BAR_GLASS_CONFIG = Object.freeze({
   brightness: -0.1
 });
 let liquidGlassInstance = null;
-let glassRefreshChain = Promise.resolve();
 let liquidGLScrollSynced = false;
 let messageLensCounter = 0;
 const pageBackground = $("pageBackground");
@@ -554,18 +560,11 @@ function refreshLiquidGlassSnapshot(changedElement = undefined) {
   if (liquidGlassInstance) liquidGlassInstance.markChanged(changedElement);
 }
 
-// LiquidGlass 1.0.3 accepts a fixed glassElements collection at init time.
-// Rebuild the single shared instance after a pair of chat bubbles is added,
-// rather than opening a separate WebGL context for every message.
-function rebuildLiquidGlassTargets() {
-  glassRefreshChain = glassRefreshChain.catch(() => {}).then(async () => {
-    if (liquidGlassInstance) {
-      liquidGlassInstance.destroy();
-      liquidGlassInstance = null;
-    }
-    return initializeLiquidGlass();
-  });
-  return glassRefreshChain;
+// Register message lenses on the existing LiquidGlass renderer. Keeping the
+// WebGL context alive avoids the blank interval caused by teardown/re-init.
+function registerMessageGlass(element) {
+  if (!liquidGlassInstance || !element) return;
+  liquidGlassInstance.addGlassElement(element);
 }
 
 // Restore the chosen background before first capture so the new renderer's
@@ -830,9 +829,7 @@ function addMsg(role, text, imageDataUrl) {
   label.appendChild(content);
   element.appendChild(label);
   log.appendChild(element);
-
-  // The glass is attached in one shared LiquidGlass pass after the new
-  // user/assistant pair has been added to the scrolling root.
+  registerMessageGlass(element);
   return body;
 }
 
@@ -1224,11 +1221,6 @@ async function send() {
 
   const output = addMsg("bot", "Thinking…");
   output.classList.add("thinking-status");
-  try {
-    await rebuildLiquidGlassTargets();
-  } catch (glassError) {
-    console.error("Could not refresh LiquidGlass targets.", glassError);
-  }
   toBottom();
 
   try {
