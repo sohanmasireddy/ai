@@ -8,9 +8,9 @@
 html,body{margin:0;height:100%;overflow:hidden;background:#070b18;color:#fff;font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
 #root{position:fixed;inset:-140px 0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;gap:18px;align-items:flex-start;padding:168px max(16px,calc((100% - 780px)/2)) 290px}#root::-webkit-scrollbar{display:none}
 #bg{position:fixed;left:0;top:-140px;width:100%;height:calc(100% + 280px);object-fit:cover;z-index:0;pointer-events:none}
-.glass{max-width:100%;text-shadow:0 1px 4px rgba(0,0,0,.55)}
-.msg{position:relative;z-index:2;max-width:100%;padding:18px 28px;overflow-wrap:anywhere}
-.msg.user{align-self:flex-end;padding:18px 34px}
+.glass{max-width:100%;color:#fff;z-index:3;text-shadow:0 1px 4px rgba(0,0,0,0.3)}
+.msg{position:relative;max-width:100%;padding:24px 32px;overflow-wrap:anywhere}
+.msg.user{align-self:flex-end}
 .msg.assistant{width:100%}
 .msg img.up{display:block;max-width:240px;max-height:240px;border-radius:14px;margin-bottom:8px}
 .msg p{margin:0 0 .7em}.msg p:last-child{margin:0}
@@ -63,7 +63,7 @@ button[hidden]{display:none}
   <div id="effMenu" class="glass menu closed"><div class="c"></div></div>
 </div>
 <script type="module">
-import { LiquidGlass } from "https://cdn.jsdelivr.net/npm/@ybouane/liquidglass@1.0.3/dist/index.js";
+import { LiquidGlass } from "./liquidglass.js";
 
 const $ = (id) => document.getElementById(id);
 const root = $("root"), composer = $("composer"), input = $("input");
