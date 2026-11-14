@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 *{box-sizing:border-box}
-html,body{margin:0;background:#070b18;color:#fff;font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
-#root{position:relative;min-height:100vh;display:flex;flex-direction:column;gap:18px;align-items:flex-start;padding:28px max(16px,calc((100% - 780px)/2)) 230px}
-#bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
-.glass{position:relative;z-index:2;max-width:100%}
+html,body{margin:0;height:100%;overflow:hidden;background:#070b18;color:#fff;font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+#root{position:fixed;inset:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:18px;align-items:flex-start;padding:28px max(16px,calc((100% - 780px)/2)) 20px}
+#bg{position:sticky;top:0;left:0;flex:none;width:100vw;height:100dvh;margin:-28px 0 -100dvh calc(-1 * max(16px,(100vw - 780px)/2));object-fit:cover;z-index:0;pointer-events:none}
+.glass{position:relative;z-index:2;max-width:100%;text-shadow:0 1px 4px rgba(0,0,0,.55)}
 .msg{padding:18px 26px;overflow-wrap:anywhere}
-.msg.user{align-self:flex-end;background:transparent}
+.msg.user{align-self:flex-end;padding:18px 34px}
 .msg.assistant{width:100%}
 .msg img.up{display:block;max-width:240px;max-height:240px;border-radius:14px;margin-bottom:8px}
 .msg p{margin:0 0 .7em}.msg p:last-child{margin:0}
@@ -27,10 +27,10 @@ details{margin-bottom:10px;font-size:13px;opacity:.9}summary{cursor:pointer}
 .gallery a{display:block;border-radius:12px;overflow:hidden;background:rgba(0,0,0,.3)}
 .gallery img{width:100%;height:110px;object-fit:cover;display:block}
 .gallery span{display:block;font-size:11px;padding:4px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.err{color:#ffb4b4}
+.err{color:#ffc9c9;margin:0}
 .dots{display:inline-flex;gap:5px}.dots i{width:7px;height:7px;border-radius:50%;background:#fff;opacity:.4;animation:b 1s infinite}
 .dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}@keyframes b{50%{opacity:1}}
-#composer{position:fixed;left:0;right:0;bottom:20px;margin:0 auto;width:min(780px,calc(100% - 32px));padding:12px 16px;z-index:5}
+#composer{position:sticky;bottom:20px;flex:none;margin-top:auto;width:100%;padding:12px 18px;z-index:5}
 #preview{display:none;align-items:center;gap:10px;margin-bottom:8px;font-size:12.5px}
 #preview.on{display:flex}#prevImg{width:48px;height:48px;object-fit:cover;border-radius:10px}
 #input{width:100%;resize:none;border:0;outline:0;background:transparent;color:#fff;font:inherit;max-height:160px;padding:6px 4px}
@@ -38,7 +38,7 @@ details{margin-bottom:10px;font-size:13px;opacity:.9}summary{cursor:pointer}
 .bar{display:flex;align-items:center;gap:8px}.sp{flex:1}
 button{font:inherit;color:#fff;background:rgba(255,255,255,.14);border:0;border-radius:999px;padding:7px 13px;cursor:pointer}
 button:hover{background:rgba(255,255,255,.24)}button.on{background:#3b82f6}button.rec{background:#e5484d}
-button.icon{width:38px;height:38px;padding:0;display:grid;place-items:center;font-size:17px}
+button.icon{width:38px;height:38px;padding:0;display:grid;place-items:center}svg{width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle}svg.sm{width:14px;height:14px;margin-left:4px}
 button[hidden]{display:none}
 .dd{position:relative}.menu{display:none;position:absolute;bottom:calc(100% + 8px);left:0;min-width:190px;background:rgba(18,22,38,.96);border-radius:14px;padding:6px;z-index:10}
 .dd.open .menu{display:block}.menu button{display:block;width:100%;text-align:left;border-radius:10px;background:none}
@@ -49,16 +49,16 @@ button[hidden]{display:none}
 <div id="root">
   <img id="bg" src="city.png" alt="">
   <div id="composer" class="glass">
-    <div id="preview"><img id="prevImg" alt=""><span id="prevInfo"></span><button class="icon" id="prevX" title="Remove image">✕</button></div>
+    <div id="preview"><img id="prevImg" alt=""><span id="prevInfo"></span><button class="icon" id="prevX" title="Remove image"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <textarea id="input" rows="1" placeholder="Message ABC123"></textarea>
     <div class="bar">
-      <button class="icon" id="attach" title="Attach image">📎</button>
+      <button class="icon" id="attach" title="Attach image"><svg viewBox="0 0 24 24"><path d="M21 11.5l-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l9-9a3.7 3.7 0 0 1 5.2 5.2l-9 9a1.8 1.8 0 0 1-2.6-2.6l8.3-8.3"/></svg></button>
       <div class="dd" id="modelDd"><button id="modelBtn"></button><div class="menu" id="modelMenu"></div></div>
-      <button id="think" hidden aria-pressed="false" title="Toggle Gemma 4 thinking">Think</button>
+      <button id="think" hidden aria-pressed="false" title="Toggle Gemma 4 thinking"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></svg> Think</button>
       <div class="dd" id="effDd" hidden><button id="effBtn"></button><div class="menu" id="effMenu"></div></div>
       <span class="sp"></span>
-      <button class="icon" id="mic" title="Record speech (Whisper)">🎤</button>
-      <button class="icon" id="send" title="Send">➤</button>
+      <button class="icon" id="mic" title="Record speech (Whisper)"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+      <button class="icon" id="send" title="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
     </div>
     <input type="file" id="file" accept="image/*" hidden>
   </div>
@@ -99,8 +99,8 @@ const rebuild = () => (chain = chain.then(async () => {
 
 // ---- helpers ----
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const nearBottom = () => document.documentElement.scrollHeight - scrollY - innerHeight < 260;
-const toBottom = () => scrollTo(0, document.documentElement.scrollHeight);
+const nearBottom = () => root.scrollHeight - root.scrollTop - root.clientHeight < 260;
+const toBottom = () => root.scrollTo(0, root.scrollHeight);
 const inline = (s, sources) => esc(s)
   .replace(/`([^`]+)`/g, "<code>$1</code>")
   .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
@@ -177,7 +177,7 @@ input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey)
 $("send").onclick = send;
 
 function dropdown(dd, btn, menu, items, get, set) {
-  const draw = () => { btn.textContent = items.find((i) => i[0] === get())[1] + " ▾"; menu.innerHTML = ""; items.forEach(([k, l]) => { const b = document.createElement("button"); b.textContent = l; b.className = k === get() ? "sel" : ""; b.onclick = () => { set(k); dd.classList.remove("open"); sync(); }; menu.append(b); }); };
+  const draw = () => { btn.innerHTML = esc(items.find((i) => i[0] === get())[1]) + `<svg class="sm" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>`; menu.innerHTML = ""; items.forEach(([k, l]) => { const b = document.createElement("button"); b.textContent = l; b.className = k === get() ? "sel" : ""; b.onclick = () => { set(k); dd.classList.remove("open"); sync(); }; menu.append(b); }); };
   btn.onclick = (e) => { e.stopPropagation(); document.querySelectorAll(".dd.open").forEach((d) => d !== dd && d.classList.remove("open")); dd.classList.toggle("open"); };
   return draw;
 }
@@ -221,9 +221,9 @@ $("mic").onclick = async () => {
       stream.getTracks().forEach((t) => t.stop()); st.rec = null; $("mic").classList.remove("rec");
       const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
       const b64 = await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1]); fr.readAsDataURL(blob); });
-      $("mic").textContent = "…";
+      $("mic").disabled = true;
       const r = await ask({ action: "transcribe", audio_base64: b64, audio_mime: blob.type });
-      $("mic").textContent = "🎤";
+      $("mic").disabled = false;
       if (r.transcript) { input.value = (input.value + " " + r.transcript).trim(); autosize(); }
       else if (r.error) alert(r.error);
     };
