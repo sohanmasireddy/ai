@@ -52,7 +52,7 @@
   .msg {
     position: relative; z-index: 1; display: flex; align-items: flex-start;
     width: fit-content; max-width: min(85%, 792px); min-width: 0;
-    padding: 10px 16px; border-radius: 20px; color: #fff;
+    padding: 10px 16px; border-radius: 9999px; color: #fff;
     line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere;
     text-shadow: 0 1px 8px rgba(0,0,0,.4); user-select: text;
   }
@@ -168,6 +168,8 @@
     transition: background .16s ease, color .16s ease;
   }
   .picker-trigger:hover, .picker-wrap.menu-open .picker-trigger { background: rgba(255,255,255,.075); }
+  #modelTrigger:disabled { opacity: 1; cursor: default; background: transparent; }
+  #modelTrigger:disabled:hover { background: transparent; }
   .picker-trigger:focus-visible, .glass-menu-item:focus-visible {
     outline: 1px solid rgba(214,230,255,.7); outline-offset: 2px;
   }
@@ -235,16 +237,17 @@
     .dropdown-chevron, .glass-dropdown-menu, .picker-trigger, #gemmaThinkToggle { transition: none !important; }
   }
 
-  /* Background is part of the LiquidGlass root so the shader samples the
-     same scene behind every pane. Sticky positioning keeps it fixed while
-     the message list scrolls. */
+  /* Full-viewport background snapshot with a 32px bleed beyond every edge.
+     LiquidGL v2 samples a larger snapshot instead of painting white outside a
+     viewport-sized target. The bleed gives LiquidGlass's padded/refraction
+     samples real background pixels when a message touches the top or bottom. */
   #background-snapshot {
-    position: sticky; top: 0; flex: 0 0 100dvh; align-self: stretch;
-    width: calc(100% + 28px); height: 100dvh; margin: 0 -14px -100dvh;
+    position: fixed; top: -32px; left: -14px; flex: none;
+    width: calc(100% + 28px); height: calc(100dvh + 64px); margin: 0;
     overflow: hidden; z-index: 0; pointer-events: none;
   }
   #pageBackground {
-    position: absolute; inset: 0; display: block; width: 100%; height: 100%;
+    position: relative; display: block; width: 100%; height: 100%;
     object-fit: cover; object-position: 50% 50%; pointer-events: none; user-select: none;
   }
   #background-snapshot::after {
@@ -366,16 +369,12 @@
       <textarea id="input" rows="1" placeholder="Message ABC123"></textarea>
       <div class="model-control" aria-label="Chat model and reasoning controls">
         <div class="picker-wrap" id="modelPicker">
-          <button class="picker-trigger" id="modelTrigger" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="modelMenu">
-            <span id="modelLabel">Granite 4.0 H Micro</span>
-            <svg class="dropdown-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          <button class="picker-trigger" id="modelTrigger" type="button" disabled
+                  aria-disabled="true" aria-label="Gemma 4 is the fixed chat model"
+                  title="Gemma 4 26B A4B is fixed for this app">
+            <span id="modelLabel">Gemma 4 26B A4B</span>
           </button>
-          <div class="glass-dropdown-menu" id="modelMenu" role="menu" aria-label="Choose model">
-            <div class="menu-caption">Chat model</div>
-            <button class="glass-menu-item selected" type="button" role="menuitemradio" aria-checked="true" data-model="granite"><span>Granite 4.0 H Micro</span><span class="menu-check">✓</span></button>
-            <button class="glass-menu-item" type="button" role="menuitemradio" aria-checked="false" data-model="gpt-oss-20b"><span>GPT-OSS 20B</span><span class="menu-check">✓</span></button>
-            <button class="glass-menu-item" type="button" role="menuitemradio" aria-checked="false" data-model="gemma-4"><span>Gemma 4 26B A4B</span><span class="menu-check">✓</span></button>
-          </div>
+          <div class="glass-dropdown-menu" id="modelMenu" role="menu" aria-label="Chat model" hidden></div>
         </div>
 
         <button id="gemmaThinkToggle" type="button" aria-label="Toggle Gemma thinking" aria-pressed="false" title="Toggle Gemma 4 thinking mode" hidden>
@@ -569,10 +568,16 @@ function getLiquidGlassTargets() {
   ].filter((element) => element instanceof HTMLElement);
 }
 
+function getComposerGlassConfig() {
+  const height = composer.getBoundingClientRect().height || composer.offsetHeight || 1;
+  return { ...VIDEO_BAR_GLASS_CONFIG, cornerRadius: Math.max(1, Math.round(height / 2)) };
+}
+
 async function initializeLiquidGlass() {
   const targets = getLiquidGlassTargets();
   targets.forEach((element) => {
-    element.dataset.config = JSON.stringify(VIDEO_BAR_GLASS_CONFIG);
+    const config = element === composer ? getComposerGlassConfig() : VIDEO_BAR_GLASS_CONFIG;
+    element.dataset.config = JSON.stringify(config);
   });
   liquidGlassInstance = await LiquidGlass.init({
     root: scroller,
@@ -647,6 +652,8 @@ initializeLegacyScrollSync();
 
 new ResizeObserver(() => {
   document.documentElement.style.setProperty("--comp-h", composer.offsetHeight + "px");
+  const nextConfig = JSON.stringify(getComposerGlassConfig());
+  if (composer.dataset.config !== nextConfig) composer.dataset.config = nextConfig;
 }).observe(composer);
 
 /* Fixed LiquidGlass settings surface and background selection. */
@@ -773,7 +780,7 @@ const MODEL_LABELS = {
   "gpt-oss-20b": "GPT-OSS 20B",
   "gemma-4": "Gemma 4 26B A4B"
 };
-let selectedModelKey = "granite";
+let selectedModelKey = "gemma-4";
 let gemmaThinkingEnabled = false;
 let gptReasoningEffort = "medium";
 let history = [];
