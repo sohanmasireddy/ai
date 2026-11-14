@@ -1,0 +1,1377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ABC123</title>
+<script>
+  /* Chromium-only: navigator.userAgentData exists in Chromium browsers only. */
+  if (!("userAgentData" in navigator)) document.documentElement.classList.add("unsupported");
+</script>
+
+<style>
+  :root { --text: #f4f7ff; --muted: rgba(244,247,255,.68); }
+  * { box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%; min-height: 100%; margin: 0; padding: 0;
+    overflow: hidden; scrollbar-width: none; -ms-overflow-style: none;
+  }
+  html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+  body {
+    position: relative; width: 100%; height: 100dvh; min-height: 100dvh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    color: var(--text); background: #070b18;
+  }
+
+  #unsupported { display: none; }
+  html.unsupported, html.unsupported body { background: #fff; }
+  html.unsupported body > *:not(#unsupported) { display: none !important; }
+  html.unsupported #unsupported {
+    display: flex; position: fixed; inset: 0; align-items: center; justify-content: center;
+    padding: 24px; text-align: center; background: #fff; color: #111;
+    font-size: clamp(22px, 4vw, 34px); font-weight: 650;
+  }
+
+  /* The chat list itself is the LiquidGlass root. Each message, the composer,
+     and both settings surfaces are direct children of this scrolling element. */
+  #scroller {
+    position: fixed; z-index: 50; inset: 0; overflow-y: auto; overflow-x: hidden;
+    overscroll-behavior: contain; scrollbar-width: none; -ms-overflow-style: none;
+    display: flex; flex-direction: column; align-items: stretch; gap: 14px;
+    padding: 0 14px calc(var(--comp-h, 90px) + 56px);
+    isolation: isolate;
+  }
+  #scroller::-webkit-scrollbar { display: none; }
+  .empty {
+    position: relative; z-index: 1; width: 100%; min-height: 100dvh;
+    margin: auto; display: grid; place-content: center; text-align: center;
+    color: var(--muted); text-shadow: 0 1px 14px rgba(0,0,0,.55);
+  }
+  .empty b { display: block; font-size: 36px; color: var(--text); letter-spacing: .06em; margin-bottom: 6px; }
+
+  .msg {
+    position: relative; z-index: 1; display: flex; align-items: flex-start;
+    width: fit-content; max-width: min(85%, 792px); min-width: 0;
+    padding: 10px 16px; border-radius: 20px; color: #fff;
+    line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere;
+    text-shadow: 0 1px 8px rgba(0,0,0,.4); user-select: text;
+  }
+  .msg.user { align-self: flex-end; margin-right: max(0px, calc((100% - 820px) / 2)); }
+  .msg.bot { align-self: flex-start; margin-left: max(0px, calc((100% - 820px) / 2)); }
+  .msg img { display: block; max-width: 220px; max-height: 220px; border-radius: 14px; margin-bottom: 8px; }
+  .msg.err { color: #ffd0d0; }
+  .thinking-status { color: var(--muted); }
+  .thinking-details { margin-top: 10px; padding-top: 9px; border-top: 1px solid rgba(255,255,255,.15); color: var(--muted); font-size: 13px; text-shadow: none; }
+  .thinking-details summary { cursor: pointer; color: rgba(244,247,255,.88); user-select: none; }
+  .thinking-details .thinking-body { margin-top: 8px; line-height: 1.5; white-space: pre-wrap; }
+  .thinking-details ul { margin: 7px 0 0; padding-left: 18px; }
+  .web-sources { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.14); display: grid; gap: 8px; text-shadow: none; }
+  .web-sources-title { color: rgba(244,247,255,.9); font-size: 13px; font-weight: 650; }
+  .web-source { display: block; padding: 9px 11px; border: 1px solid rgba(255,255,255,.13); border-radius: 13px; color: var(--text); text-decoration: none; background: rgba(8,14,28,.22); }
+  .web-source:hover { background: rgba(255,255,255,.09); }
+  .web-source-title { display: block; font-size: 13px; font-weight: 600; }
+  .web-source-url { display: block; margin-top: 3px; color: rgba(174,202,255,.86); font-size: 11px; overflow-wrap: anywhere; }
+  .web-source-snippet { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+  .web-image-grid { margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 9px; max-width: 620px; }
+  .web-image-card { display: block; min-width: 0; overflow: hidden; border-radius: 13px; border: 1px solid rgba(255,255,255,.16); background: rgba(8,14,28,.32); color: var(--text); text-decoration: none; }
+  .web-image-card img { width: 100%; height: 126px; max-width: none; max-height: none; object-fit: cover; margin: 0; display: block; }
+  .web-image-caption { display: block; padding: 7px 8px; font-size: 11px; line-height: 1.35; color: var(--muted); }
+  .web-image-credit { display: block; margin-top: 3px; opacity: .76; }
+
+  /* Safe Markdown formatting for assistant messages. */
+  .msg-body { min-width: 0; overflow-wrap: anywhere; }
+  .msg-body > :first-child { margin-top: 0; }
+  .msg-body > :last-child { margin-bottom: 0; }
+  .msg-body p { margin: 0 0 .72em; }
+  .msg-body strong { font-weight: 700; color: #fff; }
+  .msg-body em { font-style: italic; }
+  .msg-body del { opacity: .78; }
+  .msg-body a { color: #b8d0ff; text-decoration: underline; text-underline-offset: 2px; }
+  .msg-body code { padding: .12em .38em; border-radius: 6px; background: rgba(0,0,0,.26); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .9em; }
+  .msg-body pre { margin: 9px 0; padding: 12px; overflow-x: auto; border-radius: 12px; background: rgba(0,0,0,.32); border: 1px solid rgba(255,255,255,.1); }
+  .msg-body pre code { padding: 0; background: transparent; font-size: 12px; }
+  .msg-body ul, .msg-body ol { margin: 5px 0 12px; padding-left: 23px; }
+  .msg-body li { margin: 3px 0; }
+  .msg-body h1, .msg-body h2, .msg-body h3, .msg-body h4 { margin: 14px 0 7px; line-height: 1.25; color: #fff; }
+  .msg-body h1 { font-size: 1.35em; } .msg-body h2 { font-size: 1.2em; } .msg-body h3 { font-size: 1.08em; }
+  .msg-body blockquote { margin: 8px 0; padding: 3px 0 3px 12px; border-left: 3px solid rgba(190,213,255,.55); color: var(--muted); }
+  .msg-body hr { border: 0; border-top: 1px solid rgba(255,255,255,.2); margin: 12px 0; }
+  .msg-body img.inline-markdown-image { display: block; max-width: min(100%, 560px); max-height: 420px; width: auto; height: auto; object-fit: contain; border-radius: 12px; margin: 9px 0; }
+
+  /* Exact visual structure and glass settings of the LiquidGlass demo's
+     video-controls bar; only its placement adapts to the chat composer. */
+  .glass-video-ctrl {
+    position: absolute; bottom: 8px; left: 8px; right: 8px;
+    display: flex; align-items: center; padding: 10px 16px; color: #fff;
+    z-index: 3;
+  }
+  /* The demo bar's absolute video-overlay placement is re-anchored only for
+     the chat-specific composer, message cards, and fixed settings surfaces. */
+  .msg.glass-video-ctrl { position: relative; inset: auto; bottom: auto; left: auto; right: auto; }
+  .glass-video-ctrl .label {
+    position: relative; z-index: 2; pointer-events: none;
+    display: flex; align-items: center; gap: 12px; width: 100%;
+  }
+  /* The demo's bar is horizontal; the composer keeps its existing two-row
+     controls inside the same .label wrapper without changing the glass API. */
+  #composer > .composer-label {
+    display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+    pointer-events: auto;
+  }
+  .msg > .message-label { align-items: flex-start; gap: 0; pointer-events: auto; }
+  #settings-button-lens > .settings-button-label { justify-content: center; pointer-events: auto; }
+  #settings-menu-lens > .settings-menu-label { display: block; gap: 0; pointer-events: auto; }
+  #composer {
+    position: fixed; z-index: 5; left: 14px; right: 14px; max-width: 792px;
+    margin: 0 auto; bottom: max(14px, env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+    padding: 10px 16px; border-radius: 20px; color: #fff;
+    pointer-events: auto;
+  }
+  #preview { display: none; gap: 8px; padding: 4px 8px 0; align-items: center; font-size: 12px; color: var(--muted); }
+  #preview img { height: 52px; border-radius: 10px; }
+  .row { display: flex; align-items: center; gap: 2px; width: 100%; }
+  .search-bubble {
+    width: 48px; height: 48px; border-radius: 50%; object-fit: cover;
+    flex-shrink: 0; mix-blend-mode: multiply; pointer-events: none;
+  }
+  textarea {
+    flex: 1; min-width: 0; user-select: text; -webkit-user-select: text; resize: none; height: 44px; max-height: 160px; padding: 11px 8px; border: 0; outline: 0;
+    background: transparent; color: var(--text); font: inherit; line-height: 22px; text-shadow: 0 1px 8px rgba(0,0,0,.4);
+    overflow-y: hidden; scrollbar-width: none; -ms-overflow-style: none;
+  }
+  textarea::-webkit-scrollbar { display: none; width: 0; height: 0; }
+  textarea::placeholder { color: var(--muted); }
+  .icon {
+    width: 42px; height: 44px; flex: none; padding: 0; display: grid; place-items: center;
+    background: none; border: 0; color: var(--text); cursor: pointer; opacity: .9;
+    -webkit-tap-highlight-color: transparent; transition: opacity .15s, transform .15s;
+  }
+  .icon:hover { opacity: 1; }
+  .icon:active { transform: scale(.9); }
+  .icon svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  #preview .icon { width: 28px; height: 28px; }
+  #preview .icon svg { width: 16px; height: 16px; }
+
+  /* Text-only selectors with glass dropdown menus and animated chevrons. */
+  .model-control {
+    display: flex; align-items: center; flex: none; height: 40px;
+    gap: 3px; position: relative; z-index: auto;
+  }
+  .picker-wrap { position: relative; display: flex; align-items: center; }
+  .picker-trigger {
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    min-height: 38px; padding: 0 5px; border: 0; border-radius: 9px;
+    color: var(--text); background: transparent; font: inherit; font-size: 11px;
+    line-height: 1.2; cursor: pointer; white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+    transition: background .16s ease, color .16s ease;
+  }
+  .picker-trigger:hover, .picker-wrap.menu-open .picker-trigger { background: rgba(255,255,255,.075); }
+  .picker-trigger:focus-visible, .glass-menu-item:focus-visible {
+    outline: 1px solid rgba(214,230,255,.7); outline-offset: 2px;
+  }
+  .dropdown-chevron {
+    width: 12px; height: 12px; flex: none; fill: none; stroke: currentColor;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    transition: transform .24s cubic-bezier(.2,.8,.2,1);
+  }
+  .picker-wrap.menu-open .dropdown-chevron { transform: rotate(180deg); }
+  .glass-dropdown-menu {
+    position: absolute; right: 0; bottom: calc(100% + 9px); z-index: auto;
+    min-width: 190px; padding: 6px; display: grid; gap: 3px;
+    border: 0; border-radius: 24px;
+    background: transparent;
+    box-shadow: none;
+    /* This menu remains a transparent overlay within the LiquidGlass
+       video-bar composer surface; the bar itself supplies the refraction. */
+    transform: translateY(7px) scale(.975); transform-origin: bottom right;
+    pointer-events: none;
+    transition: transform .2s cubic-bezier(.2,.8,.2,1);
+  }
+  .glass-dropdown-menu.open { transform: translateY(0) scale(1); pointer-events: auto; }
+  .glass-dropdown-menu[hidden] { display: none !important; }
+  .glass-menu-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    width: 100%; min-height: 36px; padding: 8px 10px;
+    border: 0; border-radius: 10px; color: rgba(244,247,255,.94);
+    background: transparent; font: inherit; font-size: 11px; text-align: left;
+    cursor: pointer; transition: background .14s ease, color .14s ease;
+  }
+  .glass-menu-item:hover { background: rgba(255,255,255,.10); }
+  .glass-menu-item.selected { background: rgba(170,205,255,.15); color: #fff; }
+  .menu-check { opacity: 0; color: #c6dcff; font-size: 13px; }
+  .glass-menu-item.selected .menu-check { opacity: 1; }
+  .menu-caption {
+    padding: 5px 10px 7px; color: rgba(222,234,255,.56);
+    font-size: 9px; letter-spacing: .09em; text-transform: uppercase;
+  }
+  #gemmaThinkToggle {
+    display: grid; place-items: center; flex: none; width: 35px; height: 38px;
+    padding: 0; border: 0; border-radius: 50%; color: var(--text);
+    background: transparent; cursor: pointer;
+    transition: color .16s ease, background .16s ease, transform .16s ease;
+  }
+  #gemmaThinkToggle[hidden], #reasoningPicker[hidden] { display: none !important; }
+  #gemmaThinkToggle:hover { background: rgba(255,255,255,.08); }
+  #gemmaThinkToggle:active { transform: scale(.9); }
+  #gemmaThinkToggle svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  #gemmaThinkToggle.active { color: #ffd27a; background: rgba(255,190,70,.14); }
+  #reasoningPicker .picker-trigger { min-width: 85px; }
+  #mic.recording { color: #ff5268; opacity: 1; }
+  #mic.recording svg { filter: drop-shadow(0 0 5px rgba(255,65,90,.45)); }
+  #mic:disabled { opacity: .45; cursor: wait; }
+  @media (max-width: 540px) {
+    .model-control { height: 38px; gap: 1px; }
+    .picker-trigger { min-height: 36px; padding: 0 3px; font-size: 10px; gap: 3px; }
+    #modelLabel { max-width: 103px; overflow: hidden; text-overflow: ellipsis; }
+    #gemmaThinkToggle { width: 30px; height: 36px; }
+    #reasoningPicker .picker-trigger { min-width: 72px; }
+    .glass-dropdown-menu { min-width: 174px; }
+    #composer { left: 8px; right: 8px; padding-left: 6px; padding-right: 6px; }
+    .icon { width: 36px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dropdown-chevron, .glass-dropdown-menu, .picker-trigger, #gemmaThinkToggle { transition: none !important; }
+  }
+
+  /* Background is part of the LiquidGlass root so the shader samples the
+     same scene behind every pane. Sticky positioning keeps it fixed while
+     the message list scrolls. */
+  #background-snapshot {
+    position: sticky; top: 0; flex: 0 0 100dvh; align-self: stretch;
+    width: calc(100% + 28px); height: 100dvh; margin: 0 -14px -100dvh;
+    overflow: hidden; z-index: 0; pointer-events: none;
+  }
+  #pageBackground {
+    position: absolute; inset: 0; display: block; width: 100%; height: 100%;
+    object-fit: cover; object-position: 50% 50%; pointer-events: none; user-select: none;
+  }
+  #background-snapshot::after {
+    content: ""; position: absolute; inset: 0;
+    background: rgba(0,0,0,.28); pointer-events: none;
+  }
+
+  /* Text and live media sit above the glass canvas injected by LiquidGlass. */
+  .msg-content { position: relative; z-index: 1; width: 100%; pointer-events: auto; }
+  .msg-content * { pointer-events: auto; }
+  #composer, #composer * { pointer-events: auto; }
+  #composer .row, #composer .row * { pointer-events: auto !important; }
+  #composer #preview, #composer #preview * { pointer-events: auto !important; }
+  #composer .model-control, #composer .picker-wrap { z-index: auto !important; }
+
+  /* The menu stays fixed relative to the viewport, not the scrolling list. */
+  #settings-button-lens {
+    position: fixed; top: max(16px, env(safe-area-inset-top)); right: 16px; left: auto; bottom: auto;
+    width: 54px; height: 54px; border-radius: 20px; z-index: 8;
+    padding: 0; justify-content: center; pointer-events: auto;
+  }
+  #settingsButton {
+    display: grid; place-items: center; width: 100%; height: 100%;
+    padding: 0; border: 0; border-radius: inherit; color: var(--text);
+    background: transparent; cursor: pointer; pointer-events: auto !important;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #settingsButton svg { width: 22px; height: 22px; fill: none; stroke: currentColor;
+    stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+  #settings-menu-lens {
+    position: fixed; top: 82px; right: 16px; left: auto; bottom: auto; width: min(320px, calc(100vw - 32px));
+    height: min(390px, 72vh); max-height: 560px; border-radius: 20px;
+    z-index: 7; padding: 0; visibility: hidden; opacity: 0;
+    pointer-events: none; background: transparent; box-shadow: none;
+    transition: opacity .12s ease, visibility .12s ease;
+  }
+  #settings-menu-lens.open { visibility: visible; opacity: 1; pointer-events: auto; }
+  #settings-menu {
+    position: relative; width: 100%; height: 100%; max-height: 100%;
+    overflow-y: auto; overflow-x: hidden; padding: 15px;
+    border: 0; border-radius: inherit; background: transparent; box-shadow: none;
+    transform: none !important; translate: none !important; animation: none !important;
+    pointer-events: auto !important; scrollbar-width: none; -ms-overflow-style: none;
+  }
+  #settings-menu::-webkit-scrollbar { display: none; }
+  #settings-menu > *, #settings-menu button { pointer-events: auto !important; }
+  #settings-menu .settings-heading {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin: 0 0 10px; color: #fff; font-size: 15px; font-weight: 650;
+  }
+  #settings-menu .settings-close {
+    display: grid; place-items: center; width: 30px; height: 30px;
+    border: 0; border-radius: 50%; color: white; background: rgba(255,255,255,.1);
+    font-size: 20px; cursor: pointer;
+  }
+  #settings-menu .settings-label {
+    margin: 12px 2px 6px; color: rgba(255,255,255,.62);
+    font-size: 10px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase;
+  }
+  #settings-menu .settings-action {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    margin: 4px 0; padding: 10px 11px; border: 1px solid rgba(255,255,255,.12);
+    border-radius: 12px; background: rgba(255,255,255,.055); color: #f4f7ff;
+    font: inherit; font-size: 12px; text-align: left; cursor: pointer;
+  }
+  #settings-menu .settings-action:hover { background: rgba(255,255,255,.12); }
+  #settings-menu .settings-description {
+    margin: 0 2px 9px; color: rgba(255,255,255,.64); font-size: 11px; line-height: 1.45;
+  }
+  #settings-menu .settings-feedback {
+    min-height: 16px; padding: 5px 2px 0; color: rgba(255,255,255,.65);
+    font-size: 10px; line-height: 1.4;
+  }
+
+  /* Retained v2 scrolling/sync compatibility bridge. It is deliberately
+     invisible and does not paint any of the visible interface. */
+  #liquidgl-scroll-lens {
+    position: fixed; left: -4px; top: -4px; width: 2px; height: 2px;
+    opacity: 0; pointer-events: none; z-index: 0;
+  }
+
+  @media(max-width:640px) {
+    #settings-button-lens { top: max(10px, env(safe-area-inset-top)); right: 10px; width: 48px; height: 48px; }
+    #settings-menu-lens { top: 68px; right: 10px; width: min(320px, calc(100vw - 20px)); height: min(390px, 72vh); }
+    #composer { left: 8px; right: 8px; padding: 9px 10px; }
+    .search-bubble { width: 42px; height: 42px; }
+    .icon { width: 36px; }
+    .msg { max-width: 92%; }
+    .msg.user { margin-right: 0; }
+    .msg.bot { margin-left: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dropdown-chevron, .glass-dropdown-menu, .picker-trigger, #gemmaThinkToggle { transition: none !important; }
+  }
+
+</style>
+</head>
+<body>
+<div id="scroller">
+  <div id="background-snapshot" aria-hidden="true"><img id="pageBackground" src="./city.png" alt=""></div>
+  <div id="unsupported">Switch to a Chromium based browser!</div>
+  <div class="empty" id="emptyState"><div><b>ABC123</b>Ask anything. Attach an image.</div></div>
+
+  <div id="composer" class="glass-video-ctrl">
+    <div class="label composer-label">
+    <div id="preview">
+      <img id="prevImg" alt="">
+      <span id="prevInfo"></span>
+      <button class="icon" id="prevX" title="Remove image" aria-label="Remove image">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="row">
+      <video class="search-bubble" src="./assets/videos/search-bubble.mp4" autoplay muted loop playsinline aria-hidden="true"></video>
+      <button class="icon" id="attach" title="Attach image" aria-label="Attach image">
+        <svg viewBox="0 0 24 24"><path d="M21 12.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l9-9a3.7 3.7 0 0 1 5.2 5.2l-9 9a1.8 1.8 0 0 1-2.6-2.6l8.4-8.4"/></svg>
+      </button>
+      <textarea id="input" rows="1" placeholder="Message ABC123"></textarea>
+      <div class="model-control" aria-label="Chat model and reasoning controls">
+        <div class="picker-wrap" id="modelPicker">
+          <button class="picker-trigger" id="modelTrigger" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="modelMenu">
+            <span id="modelLabel">Granite 4.0 H Micro</span>
+            <svg class="dropdown-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="glass-dropdown-menu" id="modelMenu" role="menu" aria-label="Choose model">
+            <div class="menu-caption">Chat model</div>
+            <button class="glass-menu-item selected" type="button" role="menuitemradio" aria-checked="true" data-model="granite"><span>Granite 4.0 H Micro</span><span class="menu-check">✓</span></button>
+            <button class="glass-menu-item" type="button" role="menuitemradio" aria-checked="false" data-model="gpt-oss-20b"><span>GPT-OSS 20B</span><span class="menu-check">✓</span></button>
+            <button class="glass-menu-item" type="button" role="menuitemradio" aria-checked="false" data-model="gemma-4"><span>Gemma 4 26B A4B</span><span class="menu-check">✓</span></button>
+          </div>
+        </div>
+
+        <button id="gemmaThinkToggle" type="button" aria-label="Toggle Gemma thinking" aria-pressed="false" title="Toggle Gemma 4 thinking mode" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16z"/></svg>
+        </button>
+
+        <div class="picker-wrap" id="reasoningPicker" hidden>
+          <button class="picker-trigger" id="reasoningTrigger" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="reasoningMenu">
+            <span id="reasoningLabel">Medium</span>
+            <svg class="dropdown-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="glass-dropdown-menu" id="reasoningMenu" role="menu" aria-label="GPT-OSS reasoning effort">
+            <div class="menu-caption">Thinking level</div>
+            <button class="glass-menu-item" type="button" role="menuitemradio" aria-checked="false" data-effort="low"><span>Low</span><span class="menu-check">✓</span></button>
+            <button class="glass-menu-item selected" type="button" role="menuitemradio" aria-checked="true" data-effort="medium"><span>Medium</span><span class="menu-check">✓</span></button>
+            <button class="glass-menu-item" type="button" role="menuitemradio" aria-checked="false" data-effort="high"><span>High</span><span class="menu-check">✓</span></button>
+          </div>
+        </div>
+      </div>
+      <button class="icon" id="mic" type="button" title="Record speech with Whisper" aria-label="Record speech">
+        <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+      </button>
+      <button class="icon" id="send" title="Send" aria-label="Send">
+        <svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+      </button>
+    </div>
+    </div>
+  </div>
+  <input type="file" id="file" accept="image/*" hidden>
+
+  <div id="settings-button-lens" class="glass-video-ctrl">
+    <div class="label settings-button-label">
+    <button id="settingsButton" type="button" aria-label="Edit settings" title="Settings"
+            aria-haspopup="menu" aria-expanded="false" aria-controls="settings-menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 20h9"></path>
+        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"></path>
+      </svg>
+    </button>
+    </div>
+  </div>
+  <div id="settings-menu-lens" class="glass-video-ctrl">
+    <div class="label settings-menu-label">
+    <div id="settings-menu" role="menu" aria-label="Settings">
+      <div class="settings-heading">
+        <span>Settings</span>
+        <button class="settings-close" id="settingsClose" type="button" aria-label="Close settings">×</button>
+      </div>
+      <div class="settings-label">LiquidGlass</div>
+      <p class="settings-description">Refresh the message and composer glass surfaces or synchronize the retained LiquidGL scroll renderer.</p>
+      <button class="settings-action" id="refreshLiquidGL" type="button">Refresh glass surfaces</button>
+      <button class="settings-action" id="syncLiquidGL" type="button">Synchronize scroll renderer</button>
+      <div class="settings-label">Background</div>
+      <p class="settings-description">Choose a background image for this browser, or restore the original.</p>
+      <button class="settings-action" id="chooseBackground" type="button">Choose background image</button>
+      <button class="settings-action" id="restoreBackground" type="button">Restore original background</button>
+      <input type="file" id="backgroundFile" accept="image/*" hidden>
+      <div class="settings-feedback" id="settingsFeedback" aria-live="polite"></div>
+    </div>
+    </div>
+  </div>
+  <div id="liquidgl-scroll-lens" aria-hidden="true"></div>
+</div>
+
+<script src="./scripts/html2canvas.min.js"></script>
+<script src="./scripts/liquidGL.js"></script>
+<script type="module">
+import { LiquidGlass } from "https://cdn.jsdelivr.net/npm/@ybouane/liquidglass@1.0.3/dist/index.js";
+
+
+
+if (document.documentElement.classList.contains("unsupported")) {
+  throw new Error("ABC123 needs a Chromium based browser.");
+}
+
+const $ = (id) => document.getElementById(id);
+const log = $("scroller"), scroller = $("scroller"), input = $("input"), composer = $("composer");
+
+/* Hide only Streamlit's injected hosting/profile badge in the parent page. */
+function hideStreamlitBranding() {
+  try {
+    const parentDoc = window.parent.document;
+    const selectors = [
+      'a[href*="streamlit.io"]',
+      'a[href*="streamlit.app"]',
+      '[class*="viewerBadge"]',
+      '[class*="profileContainer"]',
+      '[class*="profilePreview"]',
+      '[data-testid*="viewerBadge"]'
+    ].join(",");
+
+    parentDoc.querySelectorAll(selectors).forEach((el) => {
+      const label = [
+        el.textContent || "",
+        el.getAttribute("aria-label") || "",
+        el.getAttribute("title") || ""
+      ].join(" ").toLowerCase();
+      const href = (el.getAttribute("href") || "").toLowerCase();
+      if (
+        href.includes("streamlit.io") ||
+        href.includes("streamlit.app") ||
+        label.includes("sohanmsireddy") ||
+        label.includes("hosted with streamlit")
+      ) {
+        el.style.setProperty("display", "none", "important");
+      }
+    });
+  } catch {
+    /* Parent-page access may be restricted by the hosting environment. */
+  }
+}
+
+hideStreamlitBranding();
+try {
+  const badgeObserver = new MutationObserver(hideStreamlitBranding);
+  badgeObserver.observe(window.parent.document.documentElement, {
+    childList: true,
+    subtree: true
+  });
+} catch {
+  /* Keep the app working even if the host blocks parent-page observation. */
+}
+
+/* Streamlit component bridge. */
+let pending = null;
+const stSend = (type, data = {}) => parent.postMessage({
+  isStreamlitMessage: true,
+  type: "streamlit:" + type,
+  ...data
+}, "*");
+
+addEventListener("message", (event) => {
+  if (event.source !== parent || !event.data || event.data.type !== "streamlit:render") return;
+  const reply = event.data.args && event.data.args.reply;
+  if (reply && pending && reply.id === pending.id) {
+    const current = pending;
+    pending = null;
+    current.done(reply);
+  }
+});
+
+stSend("componentReady", { apiVersion: 1 });
+stSend("setFrameHeight", { height: 600 });
+
+function askPython(payload) {
+  return new Promise((resolve, reject) => {
+    const id = Date.now() + "-" + Math.random().toString(36).slice(2);
+    const timer = setTimeout(() => {
+      pending = null;
+      reject(new Error("Timed out waiting for Cloudflare."));
+    }, 330000);
+    pending = {
+      id,
+      done: (reply) => {
+        clearTimeout(timer);
+        resolve(reply);
+      }
+    };
+    stSend("setComponentValue", {
+      value: { id, ...payload },
+      dataType: "json"
+    });
+  });
+}
+
+/* @ybouane LiquidGlass 1.0.3 — exact video-controls demo configuration. */
+const VIDEO_BAR_GLASS_CONFIG = Object.freeze({
+  cornerRadius: 20,
+  zRadius: 20,
+  blurAmount: 0.4,
+  brightness: -0.1
+});
+let liquidGlassInstance = null;
+let glassRefreshChain = Promise.resolve();
+let liquidGLScrollSynced = false;
+let messageLensCounter = 0;
+const pageBackground = $("pageBackground");
+const originalBackground = "./city.png";
+const BACKGROUND_STORAGE_KEY = "abc123-liquidglass-background";
+
+function setSettingsFeedback(message) {
+  $("settingsFeedback").textContent = message;
+}
+
+function getLiquidGlassTargets() {
+  return [
+    composer,
+    $("settings-button-lens"),
+    $("settings-menu-lens"),
+    ...scroller.querySelectorAll(".msg")
+  ].filter((element) => element instanceof HTMLElement);
+}
+
+async function initializeLiquidGlass() {
+  const targets = getLiquidGlassTargets();
+  targets.forEach((element) => {
+    element.dataset.config = JSON.stringify(VIDEO_BAR_GLASS_CONFIG);
+  });
+  liquidGlassInstance = await LiquidGlass.init({
+    root: scroller,
+    glassElements: targets
+  });
+  return liquidGlassInstance;
+}
+
+// The library exposes markChanged() for visual changes not caught by DOM
+// observers (such as swapping the page background image).
+function refreshLiquidGlassSnapshot(changedElement = undefined) {
+  if (liquidGlassInstance) liquidGlassInstance.markChanged(changedElement);
+}
+
+// LiquidGlass 1.0.3 accepts a fixed glassElements collection at init time.
+// Rebuild the single shared instance after a pair of chat bubbles is added,
+// rather than opening a separate WebGL context for every message.
+function rebuildLiquidGlassTargets() {
+  glassRefreshChain = glassRefreshChain.catch(() => {}).then(async () => {
+    if (liquidGlassInstance) {
+      liquidGlassInstance.destroy();
+      liquidGlassInstance = null;
+    }
+    return initializeLiquidGlass();
+  });
+  return glassRefreshChain;
+}
+
+// Restore the chosen background before first capture so the new renderer's
+// initial scene already matches what the user last selected.
+try {
+  const savedBackground = localStorage.getItem(BACKGROUND_STORAGE_KEY);
+  if (savedBackground && savedBackground.startsWith("data:image/")) {
+    pageBackground.src = savedBackground;
+    await pageBackground.decode().catch(() => {});
+  }
+} catch (error) {
+  console.warn("Could not restore the saved background.", error);
+}
+if (pageBackground && typeof pageBackground.decode === "function") {
+  try { await pageBackground.decode(); } catch (_) {}
+}
+await initializeLiquidGlass();
+
+// Keep the original NaughtyDuk LiquidGL v2.0.0 scroll/render-sync helper.
+// Its 2px sentinel is invisible; visible glass UI is exclusively LiquidGlass.
+function initializeLegacyScrollSync() {
+  if (liquidGLScrollSynced || typeof window.liquidGL !== "function") return;
+  window.liquidGL({
+    snapshot: "#background-snapshot",
+    target: "#liquidgl-scroll-lens",
+    resolution: 1,
+    refraction: 0.001,
+    aberration: 0,
+    bevelDepth: 0,
+    bevelWidth: 0,
+    frost: 0,
+    shadow: false,
+    specular: false,
+    reveal: "none",
+    tilt: false,
+    magnify: 1
+  });
+  window.liquidGL.syncWith({
+    lenis: false,
+    locomotiveScroll: false,
+    gsap: false
+  });
+  liquidGLScrollSynced = true;
+}
+initializeLegacyScrollSync();
+
+new ResizeObserver(() => {
+  document.documentElement.style.setProperty("--comp-h", composer.offsetHeight + "px");
+}).observe(composer);
+
+/* Fixed LiquidGlass settings surface and background selection. */
+const settingsButton = $("settingsButton");
+const settingsMenuLens = $("settings-menu-lens");
+const settingsMenu = $("settings-menu");
+
+function setSettingsOpen(open) {
+  settingsMenuLens.classList.toggle("open", open);
+  settingsButton.setAttribute("aria-expanded", String(open));
+  refreshLiquidGlassSnapshot(settingsMenuLens);
+}
+
+settingsButton.addEventListener("click", (event) => {
+  event.stopPropagation();
+  setSettingsOpen(!settingsMenuLens.classList.contains("open"));
+});
+$("settingsClose").addEventListener("click", () => setSettingsOpen(false));
+settingsMenu.addEventListener("click", (event) => event.stopPropagation());
+document.addEventListener("click", (event) => {
+  if (!event.target.closest("#settings-menu-lens, #settings-button-lens")) setSettingsOpen(false);
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") setSettingsOpen(false);
+});
+
+$("refreshLiquidGL").addEventListener("click", async () => {
+  try {
+    setSettingsFeedback("Refreshing LiquidGlass surfaces…");
+    refreshLiquidGlassSnapshot();
+    setSettingsFeedback("LiquidGlass surfaces refreshed.");
+  } catch (error) {
+    setSettingsFeedback(error.message || "Could not refresh the snapshot.");
+  }
+});
+
+$("syncLiquidGL").addEventListener("click", () => {
+  if (liquidGLScrollSynced) {
+    setSettingsFeedback("LiquidGL render synchronization is already active.");
+    return;
+  }
+  // Official NaughtyDuk v2.0.0 synchronization helper retained for scroll.
+  window.liquidGL.syncWith({
+    lenis: false,
+    locomotiveScroll: false,
+    gsap: false
+  });
+  liquidGLScrollSynced = true;
+  setSettingsFeedback("LiquidGL scroll renderer synchronized.");
+});
+
+$("chooseBackground").addEventListener("click", () => $("backgroundFile").click());
+$("backgroundFile").addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith("image/")) {
+    setSettingsFeedback("Please choose an image file.");
+    event.target.value = "";
+    return;
+  }
+  if (file.size > 15 * 1024 * 1024) {
+    setSettingsFeedback("Choose an image smaller than 15 MB.");
+    event.target.value = "";
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onerror = () => setSettingsFeedback("Could not read that image file.");
+  reader.onload = async () => {
+    try {
+      pageBackground.src = String(reader.result);
+      await pageBackground.decode();
+      localStorage.setItem(BACKGROUND_STORAGE_KEY, String(reader.result));
+      refreshLiquidGlassSnapshot(pageBackground);
+      setSettingsFeedback("Background updated and saved on this device.");
+    } catch (error) {
+      setSettingsFeedback("Background updated, but the snapshot could not be refreshed.");
+    }
+    event.target.value = "";
+  };
+  reader.readAsDataURL(file);
+});
+
+$("restoreBackground").addEventListener("click", async () => {
+  try { localStorage.removeItem(BACKGROUND_STORAGE_KEY); } catch (_) {}
+  pageBackground.src = originalBackground;
+  try { await pageBackground.decode(); } catch (_) {}
+  refreshLiquidGlassSnapshot(pageBackground);
+  setSettingsFeedback("Original background restored.");
+});
+
+/* Image compression for Cloudflare Gemma 4 vision input. */
+async function compressImage(file, maxSide = 1024, quality = 0.72) {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+  const width = Math.round(bitmap.width * scale);
+  const height = Math.round(bitmap.height * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Could not process the selected image.");
+  context.fillStyle = "#fff";
+  context.fillRect(0, 0, width, height);
+  context.drawImage(bitmap, 0, 0, width, height);
+  const dataUrl = canvas.toDataURL("image/jpeg", quality);
+  return {
+    dataUrl,
+    base64: dataUrl.split(",")[1],
+    bytes: Math.round(dataUrl.length * 0.75)
+  };
+}
+
+const kb = (size) => (size / 1024).toFixed(0) + " KB";
+
+/* Chat, model selection, Think mode, and Whisper dictation. */
+const toBottom = () => scroller.scrollTo(0, scroller.scrollHeight);
+const nearBottom = () => (
+  scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 160
+);
+
+const MODEL_LABELS = {
+  granite: "Granite 4.0 H Micro",
+  "gpt-oss-20b": "GPT-OSS 20B",
+  "gemma-4": "Gemma 4 26B A4B"
+};
+let selectedModelKey = "granite";
+let gemmaThinkingEnabled = false;
+let gptReasoningEffort = "medium";
+let history = [];
+let pendingImage = null;
+let busy = false;
+let transcribing = false;
+let recorder = null;
+let recorderStream = null;
+let recorderChunks = [];
+let recordingTimer = null;
+
+const modelPicker = $("modelPicker");
+const modelTrigger = $("modelTrigger");
+const modelMenu = $("modelMenu");
+const modelLabel = $("modelLabel");
+const gemmaThinkToggle = $("gemmaThinkToggle");
+const reasoningPicker = $("reasoningPicker");
+const reasoningTrigger = $("reasoningTrigger");
+const reasoningMenu = $("reasoningMenu");
+const reasoningLabel = $("reasoningLabel");
+const micButton = $("mic");
+
+function setDropdownOpen(wrapper, trigger, menu, open) {
+  // Keep the menu layout stable while toggling visibility so the LiquidGlass
+  // renderer can preserve its cached geometry without rebuilding the target.
+  menu.classList.toggle("open", open);
+  wrapper.classList.toggle("menu-open", open);
+  trigger.setAttribute("aria-expanded", String(open));
+}
+
+function closeDropdowns(except = null) {
+  if (except !== "model") setDropdownOpen(modelPicker, modelTrigger, modelMenu, false);
+  if (except !== "reasoning") setDropdownOpen(reasoningPicker, reasoningTrigger, reasoningMenu, false);
+}
+
+
+
+modelTrigger.addEventListener("click", (event) => {
+  event.stopPropagation();
+  const shouldOpen = !modelMenu.classList.contains("open");
+  closeDropdowns("model");
+  setDropdownOpen(modelPicker, modelTrigger, modelMenu, shouldOpen);
+});
+
+reasoningTrigger.addEventListener("click", (event) => {
+  event.stopPropagation();
+  const shouldOpen = !reasoningMenu.classList.contains("open");
+  closeDropdowns("reasoning");
+  setDropdownOpen(reasoningPicker, reasoningTrigger, reasoningMenu, shouldOpen);
+});
+
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".picker-wrap")) closeDropdowns();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeDropdowns();
+    setSettingsOpen(false);
+    modelTrigger.focus();
+  }
+});
+
+function syncModelControls() {
+  modelLabel.textContent = MODEL_LABELS[selectedModelKey];
+  gemmaThinkToggle.hidden = selectedModelKey !== "gemma-4";
+  reasoningPicker.hidden = selectedModelKey !== "gpt-oss-20b";
+  gemmaThinkToggle.classList.toggle("active", selectedModelKey === "gemma-4" && gemmaThinkingEnabled);
+  gemmaThinkToggle.setAttribute("aria-pressed", String(selectedModelKey === "gemma-4" && gemmaThinkingEnabled));
+  gemmaThinkToggle.title = gemmaThinkingEnabled
+    ? "Gemma 4 thinking is on"
+    : "Turn on Gemma 4 thinking";
+  reasoningLabel.textContent = gptReasoningEffort.charAt(0).toUpperCase() + gptReasoningEffort.slice(1);
+
+  modelMenu.querySelectorAll("[data-model]").forEach((item) => {
+    const selected = item.dataset.model === selectedModelKey;
+    item.classList.toggle("selected", selected);
+    item.setAttribute("aria-checked", String(selected));
+  });
+  reasoningMenu.querySelectorAll("[data-effort]").forEach((item) => {
+    const selected = item.dataset.effort === gptReasoningEffort;
+    item.classList.toggle("selected", selected);
+    item.setAttribute("aria-checked", String(selected));
+  });
+}
+
+modelMenu.querySelectorAll("[data-model]").forEach((item) => {
+  item.addEventListener("click", () => {
+    selectedModelKey = item.dataset.model;
+    syncModelControls();
+    closeDropdowns();
+  });
+});
+
+reasoningMenu.querySelectorAll("[data-effort]").forEach((item) => {
+  item.addEventListener("click", () => {
+    gptReasoningEffort = item.dataset.effort;
+    syncModelControls();
+    closeDropdowns();
+  });
+});
+
+gemmaThinkToggle.addEventListener("click", () => {
+  if (selectedModelKey !== "gemma-4") return;
+  gemmaThinkingEnabled = !gemmaThinkingEnabled;
+  syncModelControls();
+});
+
+syncModelControls();
+
+$("attach").onclick = () => $("file").click();
+$("file").onchange = async (event) => {
+  const file = event.target.files[0];
+  event.target.value = "";
+  if (!file) return;
+  try {
+    const output = await compressImage(file);
+    pendingImage = output;
+    $("prevImg").src = output.dataUrl;
+    $("prevInfo").textContent = `${kb(file.size)} → ${kb(output.bytes)}`;
+    $("preview").style.display = "flex";
+  } catch (error) {
+    alert("Couldn't read that image: " + error.message);
+  }
+};
+
+$("prevX").onclick = () => {
+  pendingImage = null;
+  $("preview").style.display = "none";
+};
+
+function autosize() {
+  input.style.height = "44px";
+  input.style.height = Math.min(input.scrollHeight, 160) + "px";
+  input.style.overflowY = input.scrollHeight > 160 ? "auto" : "hidden";
+}
+
+input.addEventListener("input", autosize);
+input.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    send();
+  }
+});
+$("send").onclick = send;
+
+function addMsg(role, text, imageDataUrl) {
+  log.querySelector(".empty")?.remove();
+  const element = document.createElement("div");
+  element.className = `msg glass-video-ctrl ${role}`;
+  element.id = `message-lens-${++messageLensCounter}`;
+  element.dataset.config = JSON.stringify(VIDEO_BAR_GLASS_CONFIG);
+
+  const label = document.createElement("div");
+  label.className = "label message-label";
+  const content = document.createElement("div");
+  content.className = "msg-content";
+
+  if (imageDataUrl) {
+    const image = document.createElement("img");
+    image.src = imageDataUrl;
+    image.alt = "Uploaded image";
+    content.appendChild(image);
+  }
+
+  const body = document.createElement("div");
+  body.className = "msg-body";
+  body.textContent = text;
+  content.appendChild(body);
+  label.appendChild(content);
+  element.appendChild(label);
+  log.appendChild(element);
+
+  // The glass is attached in one shared LiquidGlass pass after the new
+  // user/assistant pair has been added to the scrolling root.
+  return body;
+}
+
+/* Clean accidental raw image payloads and Markdown image embeds. */
+function sanitizeAssistantText(value) {
+  let text = String(value || "");
+  text = text.replace(/!\[[^\]]*\]\(\s*https?:\/\/[^)\s]+(?:\s+"[^"]*")?\s*\)\s*(?:\[\d+\])?/gi, "");
+  text = text.replace(/!\[[^\]]*\]\(\s*data:image\/[^;]+;base64,[A-Za-z0-9+/=\s]+\)/gi, "");
+  text = text.replace(/data:image\/[A-Za-z0-9.+-]+;base64,[A-Za-z0-9+/=\r\n]+/gi, "[image data omitted]");
+  text = text.replace(/(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{512,}={0,2}(?![A-Za-z0-9+/])/g, "[binary image data omitted]");
+  text = text.replace(/<think>[\s\S]*?<\/think>/gi, "");
+  text = text.replace(/^[ \t]*\[\d+\][ \t]*$/gm, "");
+  text = text.replace(/[ \t]+(?=\n)/g, "").replace(/\n{3,}/g, "\n\n");
+  return text.trim();
+}
+
+function appendInlineMarkdown(parent, source) {
+  const token = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)(?:\s+"([^"]*)")?\)|\[([^\]]+)\]\((https?:\/\/[^\s)]+)(?:\s+"[^"]*")?\)|\*\*(.+?)\*\*|__(.+?)__|~~(.+?)~~|(?<!\*)\*([^*\n]+)\*(?!\*)|(?<!_)_([^_\n]+)_(?!_)|`([^`\n]+)`|(https?:\/\/[^\s<]+)/g;
+  let last = 0;
+  let match;
+
+  while ((match = token.exec(source)) !== null) {
+    if (match.index > last) parent.appendChild(document.createTextNode(source.slice(last, match.index)));
+    if (match[1] !== undefined) {
+      try {
+        const url = new URL(match[2]);
+        if (["http:", "https:"].includes(url.protocol)) {
+          const image = document.createElement("img");
+          image.className = "inline-markdown-image";
+          image.src = url.href;
+          image.alt = match[1] || "Image";
+          image.loading = "lazy";
+          image.referrerPolicy = "no-referrer";
+          parent.appendChild(image);
+        } else parent.appendChild(document.createTextNode(match[0]));
+      } catch { parent.appendChild(document.createTextNode(match[0])); }
+    } else if (match[4] !== undefined) {
+      try {
+        const url = new URL(match[5]);
+        if (["http:", "https:"].includes(url.protocol)) {
+          const link = document.createElement("a");
+          link.href = url.href;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          appendInlineMarkdown(link, match[4]);
+          parent.appendChild(link);
+        } else parent.appendChild(document.createTextNode(match[0]));
+      } catch { parent.appendChild(document.createTextNode(match[0])); }
+    } else if (match[6] !== undefined || match[7] !== undefined) {
+      const strong = document.createElement("strong");
+      appendInlineMarkdown(strong, match[6] ?? match[7]);
+      parent.appendChild(strong);
+    } else if (match[8] !== undefined) {
+      const del = document.createElement("del");
+      appendInlineMarkdown(del, match[8]);
+      parent.appendChild(del);
+    } else if (match[9] !== undefined || match[10] !== undefined) {
+      const em = document.createElement("em");
+      appendInlineMarkdown(em, match[9] ?? match[10]);
+      parent.appendChild(em);
+    } else if (match[11] !== undefined) {
+      const code = document.createElement("code");
+      code.textContent = match[11];
+      parent.appendChild(code);
+    } else if (match[12] !== undefined) {
+      const url = match[12].replace(/[.,!?;:]+$/, "");
+      const trailing = match[12].slice(url.length);
+      try {
+        const parsed = new URL(url);
+        if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+          const link = document.createElement("a");
+          link.href = parsed.href;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = url;
+          parent.appendChild(link);
+          if (trailing) parent.appendChild(document.createTextNode(trailing));
+        } else parent.appendChild(document.createTextNode(match[0]));
+      } catch { parent.appendChild(document.createTextNode(match[0])); }
+    }
+    last = token.lastIndex;
+  }
+  if (last < source.length) parent.appendChild(document.createTextNode(source.slice(last)));
+}
+
+function renderAssistantMarkdown(element, markdown) {
+  element.replaceChildren();
+  const lines = String(markdown || "").replace(/\r\n?/g, "\n").split("\n");
+  let index = 0;
+  const isBlockStart = (line) =>
+    /^\s*```/.test(line) || /^\s{0,3}#{1,6}\s+/.test(line) || /^\s{0,3}>/.test(line) ||
+    /^\s*([-*+]\s+|\d+[.)]\s+)/.test(line) || /^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/.test(line);
+
+  while (index < lines.length) {
+    const line = lines[index];
+    if (!line.trim()) { index++; continue; }
+    if (/^\s*```/.test(line)) {
+      const language = line.replace(/^\s*```/, "").trim();
+      index++;
+      const codeLines = [];
+      while (index < lines.length && !/^\s*```/.test(lines[index])) codeLines.push(lines[index++]);
+      if (index < lines.length) index++;
+      const pre = document.createElement("pre");
+      const code = document.createElement("code");
+      if (language) code.dataset.language = language;
+      code.textContent = codeLines.join("\n");
+      pre.appendChild(code);
+      element.appendChild(pre);
+      continue;
+    }
+    const heading = line.match(/^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/);
+    if (heading) {
+      const node = document.createElement(`h${heading[1].length}`);
+      appendInlineMarkdown(node, heading[2]);
+      element.appendChild(node);
+      index++;
+      continue;
+    }
+    if (/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
+      element.appendChild(document.createElement("hr"));
+      index++;
+      continue;
+    }
+    if (/^\s{0,3}>/.test(line)) {
+      const quoteLines = [];
+      while (index < lines.length && /^\s{0,3}>/.test(lines[index])) quoteLines.push(lines[index++].replace(/^\s{0,3}>\s?/, ""));
+      const quote = document.createElement("blockquote");
+      appendInlineMarkdown(quote, quoteLines.join(" "));
+      element.appendChild(quote);
+      continue;
+    }
+    const listMatch = line.match(/^\s*(?:([-*+])\s+|(\d+)[.)]\s+)(.*)$/);
+    if (listMatch) {
+      const ordered = Boolean(listMatch[2]);
+      const list = document.createElement(ordered ? "ol" : "ul");
+      while (index < lines.length) {
+        const item = lines[index].match(/^\s*(?:([-*+])\s+|(\d+)[.)]\s+)(.*)$/);
+        if (!item || Boolean(item[2]) !== ordered) break;
+        const li = document.createElement("li");
+        appendInlineMarkdown(li, item[3]);
+        list.appendChild(li);
+        index++;
+      }
+      element.appendChild(list);
+      continue;
+    }
+    const paragraphLines = [];
+    while (index < lines.length && lines[index].trim() && !isBlockStart(lines[index])) paragraphLines.push(lines[index++]);
+    if (!paragraphLines.length) paragraphLines.push(lines[index++]);
+    const paragraph = document.createElement("p");
+    paragraphLines.forEach((part, partIndex) => {
+      if (partIndex) paragraph.appendChild(document.createElement("br"));
+      appendInlineMarkdown(paragraph, part);
+    });
+    element.appendChild(paragraph);
+  }
+}
+
+function reveal(element, text) {
+  renderAssistantMarkdown(element, text);
+  return Promise.resolve();
+}
+
+function addThinking(element, thinking, activity = []) {
+  if (!thinking && (!Array.isArray(activity) || !activity.length)) return;
+  const details = document.createElement("details");
+  details.className = "thinking-details";
+  const summary = document.createElement("summary");
+  summary.textContent = "Thinking & research activity";
+  const body = document.createElement("div");
+  body.className = "thinking-body";
+  body.textContent = thinking || "Reasoning mode was not enabled for this response.";
+  details.appendChild(summary);
+  details.appendChild(body);
+  if (Array.isArray(activity) && activity.length) {
+    const list = document.createElement("ul");
+    for (const item of activity) {
+      const li = document.createElement("li");
+      li.textContent = String(item);
+      list.appendChild(li);
+    }
+    details.appendChild(list);
+  }
+  element.parentElement.appendChild(details);
+}
+
+function addWebSources(element, sources) {
+  if (!Array.isArray(sources) || !sources.length) return;
+  const wrap = document.createElement("div");
+  wrap.className = "web-sources";
+  const heading = document.createElement("div");
+  heading.className = "web-sources-title";
+  heading.textContent = "Sources";
+  wrap.appendChild(heading);
+  for (const source of sources.slice(0, 12)) {
+    if (!source || !source.url) continue;
+    const link = document.createElement("a");
+    link.className = "web-source";
+    link.href = source.url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    const title = document.createElement("span");
+    title.className = "web-source-title";
+    title.textContent = `${source.id ? `[${source.id}] ` : ""}${source.title || source.url}`;
+    link.appendChild(title);
+    const url = document.createElement("span");
+    url.className = "web-source-url";
+    url.textContent = source.url;
+    link.appendChild(url);
+    if (source.snippet) {
+      const snippet = document.createElement("span");
+      snippet.className = "web-source-snippet";
+      snippet.textContent = source.snippet;
+      link.appendChild(snippet);
+    }
+    wrap.appendChild(link);
+  }
+  if (wrap.children.length > 1) element.parentElement.appendChild(wrap);
+}
+
+function addWebImages(element, images) {
+  if (!Array.isArray(images) || !images.length) return;
+  const grid = document.createElement("div");
+  grid.className = "web-image-grid";
+  for (const item of images.slice(0, 6)) {
+    if (!item || !item.image_url || !item.page_url) continue;
+    let imageUrl, pageUrl;
+    try { imageUrl = new URL(item.image_url); pageUrl = new URL(item.page_url); }
+    catch { continue; }
+    if (!["http:", "https:"].includes(imageUrl.protocol) || !["http:", "https:"].includes(pageUrl.protocol)) continue;
+    const link = document.createElement("a");
+    link.className = "web-image-card";
+    link.href = pageUrl.href;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    const image = document.createElement("img");
+    image.src = imageUrl.href;
+    image.alt = item.title || "Web image result";
+    image.loading = "lazy";
+    image.referrerPolicy = "no-referrer";
+    image.onerror = () => link.remove();
+    link.appendChild(image);
+    const caption = document.createElement("span");
+    caption.className = "web-image-caption";
+    caption.textContent = item.title || "Image";
+    const credit = document.createElement("span");
+    credit.className = "web-image-credit";
+    credit.textContent = [item.artist, item.license].filter(Boolean).join(" · ") || "Wikimedia Commons";
+    caption.appendChild(credit);
+    link.appendChild(caption);
+    grid.appendChild(link);
+  }
+  if (grid.children.length) element.parentElement.appendChild(grid);
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const value = String(reader.result || "");
+      const comma = value.indexOf(",");
+      resolve(comma >= 0 ? value.slice(comma + 1) : value);
+    };
+    reader.onerror = () => reject(new Error("Could not read microphone audio."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function stopMicrophoneTracks() {
+  if (recordingTimer) clearTimeout(recordingTimer);
+  recordingTimer = null;
+  if (recorderStream) {
+    recorderStream.getTracks().forEach((track) => track.stop());
+    recorderStream = null;
+  }
+  micButton.classList.remove("recording");
+  micButton.title = "Record speech with Whisper";
+  micButton.setAttribute("aria-label", "Record speech");
+}
+
+async function transcribeRecording(blob, mimeType) {
+  if (!blob || blob.size < 256) {
+    alert("The recording was empty. Please try again.");
+    return;
+  }
+  if (blob.size > 12 * 1024 * 1024) {
+    alert("That recording is too large. Please record a shorter clip.");
+    return;
+  }
+  transcribing = true;
+  micButton.disabled = true;
+  micButton.title = "Transcribing with Whisper…";
+  input.placeholder = "Transcribing speech…";
+  try {
+    const audioBase64 = await blobToBase64(blob);
+    const result = await askPython({
+      action: "transcribe",
+      audio_base64: audioBase64,
+      audio_mime: mimeType || "audio/webm"
+    });
+    if (result.error) throw new Error(result.error);
+    const transcript = String(result.transcript || "").trim();
+    if (!transcript) throw new Error("Whisper did not return any words.");
+    const current = input.value.trim();
+    input.value = current ? `${current} ${transcript}` : transcript;
+    autosize();
+    input.focus();
+  } catch (error) {
+    alert("Whisper transcription failed: " + error.message);
+  } finally {
+    transcribing = false;
+    micButton.disabled = false;
+    input.placeholder = "Message ABC123";
+    micButton.title = "Record speech with Whisper";
+  }
+}
+
+async function toggleMicrophone() {
+  if (busy || transcribing) return;
+  if (recorder && recorder.state === "recording") {
+    recorder.stop();
+    return;
+  }
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    alert("Microphone recording is not supported by this browser. Use a secure HTTPS page in a Chromium-based browser.");
+    return;
+  }
+  try {
+    recorderStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    });
+    const mimeCandidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+    const mimeType = mimeCandidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) || "";
+    recorder = mimeType ? new MediaRecorder(recorderStream, { mimeType }) : new MediaRecorder(recorderStream);
+    recorderChunks = [];
+    recorder.ondataavailable = (event) => {
+      if (event.data && event.data.size) recorderChunks.push(event.data);
+    };
+    recorder.onerror = (event) => {
+      stopMicrophoneTracks();
+      alert("Microphone recording failed: " + (event.error?.message || "unknown error"));
+    };
+    recorder.onstop = async () => {
+      const finalType = recorder.mimeType || mimeType || "audio/webm";
+      const blob = new Blob(recorderChunks, { type: finalType });
+      recorderChunks = [];
+      stopMicrophoneTracks();
+      await transcribeRecording(blob, finalType);
+    };
+    recorder.start(250);
+    micButton.classList.add("recording");
+    micButton.title = "Recording… click to stop";
+    micButton.setAttribute("aria-label", "Stop recording");
+    recordingTimer = setTimeout(() => {
+      if (recorder && recorder.state === "recording") recorder.stop();
+    }, 60000);
+  } catch (error) {
+    stopMicrophoneTracks();
+    alert("Could not access the microphone: " + error.message);
+  }
+}
+
+micButton.addEventListener("click", toggleMicrophone);
+
+async function send() {
+  const text = input.value.trim();
+  if ((!text && !pendingImage) || busy || transcribing) return;
+  if (recorder && recorder.state === "recording") {
+    recorder.stop();
+    return;
+  }
+
+  busy = true;
+  const selectedModel = selectedModelKey;
+  const useThinking = selectedModel === "gemma-4" && gemmaThinkingEnabled;
+  const reasoningEffort = selectedModel === "gpt-oss-20b" ? gptReasoningEffort : "medium";
+  const message = {
+    role: "user",
+    content: text || "Describe this image."
+  };
+  if (pendingImage) message.images = [pendingImage.base64];
+
+  addMsg("user", message.content, pendingImage?.dataUrl);
+  history.push(message);
+  input.value = "";
+  autosize();
+  pendingImage = null;
+  $("preview").style.display = "none";
+
+  const output = addMsg("bot", "Thinking…");
+  output.classList.add("thinking-status");
+  try {
+    await rebuildLiquidGlassTargets();
+  } catch (glassError) {
+    console.error("Could not refresh LiquidGlass targets.", glassError);
+  }
+  toBottom();
+
+  try {
+    const result = await askPython({
+      action: "chat",
+      messages: history,
+      model: selectedModel,
+      think: useThinking,
+      reasoning_effort: reasoningEffort
+    });
+    if (result.error) throw new Error(result.error);
+    const answer = sanitizeAssistantText(result.text || "");
+    output.classList.remove("thinking-status");
+    await reveal(output, answer);
+    addThinking(output, result.thinking, result.activity || []);
+    addWebSources(output, result.sources || []);
+    addWebImages(output, result.images || []);
+    history.push({ role: "assistant", content: answer });
+  } catch (error) {
+    output.parentElement.classList.add("err");
+    output.classList.remove("thinking-status");
+    output.textContent = "Error: " + error.message;
+    history.pop();
+  } finally {
+    busy = false;
+    toBottom();
+  }
+}
+</script>
+</body>
+</html>
