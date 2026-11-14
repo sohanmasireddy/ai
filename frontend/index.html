@@ -6,11 +6,11 @@
 <style>
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;background:#070b18;color:#fff;font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
-#root{position:fixed;inset:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:18px;align-items:flex-start;padding:28px max(16px,calc((100% - 780px)/2)) 20px}
-#bg{position:sticky;top:0;left:0;flex:none;width:100vw;height:100dvh;margin:-28px 0 -100dvh calc(-1 * max(16px,(100vw - 780px)/2));object-fit:cover;z-index:0;pointer-events:none}
-.glass{position:relative;z-index:2;max-width:100%;text-shadow:0 1px 4px rgba(0,0,0,.55)}
-.msg{padding:18px 26px;overflow-wrap:anywhere}
-.msg.user{align-self:flex-end;padding:18px 34px}
+#root{position:fixed;inset:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:18px;align-items:flex-start;padding:28px max(16px,calc((100% - 780px)/2)) 150px}
+#bg{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;pointer-events:none}
+.glass{max-width:100%;text-shadow:0 1px 4px rgba(0,0,0,.55)}
+.msg{position:relative;z-index:2;max-width:100%;padding:16px 24px;border-radius:26px;background:rgba(7,11,24,.45);overflow-wrap:anywhere}
+.msg.user{align-self:flex-end}
 .msg.assistant{width:100%}
 .msg img.up{display:block;max-width:240px;max-height:240px;border-radius:14px;margin-bottom:8px}
 .msg p{margin:0 0 .7em}.msg p:last-child{margin:0}
@@ -30,10 +30,10 @@ details{margin-bottom:10px;font-size:13px;opacity:.9}summary{cursor:pointer}
 .err{color:#ffc9c9;margin:0}
 .dots{display:inline-flex;gap:5px}.dots i{width:7px;height:7px;border-radius:50%;background:#fff;opacity:.4;animation:b 1s infinite}
 .dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}@keyframes b{50%{opacity:1}}
-#composer{position:sticky;bottom:20px;flex:none;margin-top:auto;width:100%;padding:12px 18px;z-index:5}
+#composer{position:fixed;bottom:20px;left:calc((100% - min(780px,100% - 32px))/2);width:calc(min(780px,100% - 32px) - 72px);padding:10px 16px;z-index:5}#sendBtn{position:fixed;bottom:20px;right:calc((100% - min(780px,100% - 32px))/2);width:56px;height:56px;display:grid;place-items:center;cursor:pointer;z-index:5}.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 #preview{display:none;align-items:center;gap:10px;margin-bottom:8px;font-size:12.5px}
 #preview.on{display:flex}#prevImg{width:48px;height:48px;object-fit:cover;border-radius:10px}
-#input{width:100%;resize:none;border:0;outline:0;background:transparent;color:#fff;font:inherit;max-height:160px;padding:6px 4px}
+#input{flex:1 1 160px;min-width:0;resize:none;border:0;outline:0;background:transparent;color:#fff;font:inherit;max-height:160px;padding:6px 4px}
 #input::placeholder{color:rgba(255,255,255,.6)}
 .bar{display:flex;align-items:center;gap:8px}.sp{flex:1}
 button{font:inherit;color:#fff;background:rgba(255,255,255,.14);border:0;border-radius:999px;padding:7px 13px;cursor:pointer}
@@ -50,18 +50,17 @@ button[hidden]{display:none}
   <img id="bg" src="city.png" alt="">
   <div id="composer" class="glass">
     <div id="preview"><img id="prevImg" alt=""><span id="prevInfo"></span><button class="icon" id="prevX" title="Remove image"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-    <textarea id="input" rows="1" placeholder="Message ABC123"></textarea>
-    <div class="bar">
+    <div class="row">
       <button class="icon" id="attach" title="Attach image"><svg viewBox="0 0 24 24"><path d="M21 11.5l-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l9-9a3.7 3.7 0 0 1 5.2 5.2l-9 9a1.8 1.8 0 0 1-2.6-2.6l8.3-8.3"/></svg></button>
       <div class="dd" id="modelDd"><button id="modelBtn"></button><div class="menu" id="modelMenu"></div></div>
       <button id="think" hidden aria-pressed="false" title="Toggle Gemma 4 thinking"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></svg> Think</button>
       <div class="dd" id="effDd" hidden><button id="effBtn"></button><div class="menu" id="effMenu"></div></div>
-      <span class="sp"></span>
+      <textarea id="input" rows="1" placeholder="Message ABC123"></textarea>
       <button class="icon" id="mic" title="Record speech (Whisper)"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
-      <button class="icon" id="send" title="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
     </div>
     <input type="file" id="file" accept="image/*" hidden>
   </div>
+  <div id="sendBtn" class="glass" role="button" title="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div>
 </div>
 <script type="module">
 import { LiquidGlass } from "https://cdn.jsdelivr.net/npm/@ybouane/liquidglass@1.0.3/dist/index.js";
@@ -89,13 +88,8 @@ const ask = (payload) => new Promise((res) => {
 
 // ---- LiquidGlass: frosted glass config from the demo, floating off ----
 const CONFIG = JSON.stringify({ cornerRadius: 40, blurAmount: 0.5, floating: false });
-let lg = null, chain = Promise.resolve();
-const rebuild = () => (chain = chain.then(async () => {
-  if (lg) lg.destroy();
-  const els = [...root.querySelectorAll(":scope > .glass")];
-  els.forEach((el) => (el.dataset.config = CONFIG));
-  lg = await LiquidGlass.init({ root, glassElements: els });
-}).catch(console.error));
+let lg = null;
+const changed = (el) => lg && lg.markChanged(el);
 
 // ---- helpers ----
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -130,8 +124,8 @@ async function addMsg(role, html) {
   const el = document.createElement("div");
   el.className = `glass msg ${role}`;
   el.innerHTML = html;
-  root.insertBefore(el, composer);
-  await rebuild();
+  root.append(el);
+  changed(el);
   if (role === "user" || nearBottom()) toBottom();
   return el;
 }
@@ -149,10 +143,11 @@ async function showAnswer(el, r) {
   }
   body.innerHTML = markdown(r.answer, sources);
   if ((r.images || []).length)
-    el.insertAdjacentHTML("beforeend", `<div class="gallery">${r.images.map((i) => `<a href="${esc(i.page_url || i.image_url)}" target="_blank" rel="noopener"><img src="${esc(i.image_url)}" alt="${esc(i.title)}" loading="lazy"><span>${esc(i.title)}</span></a>`).join("")}</div>`);
+    el.insertAdjacentHTML("beforeend", `<div class="gallery">${r.images.map((i) => `<a href="${esc(i.page_url || i.image_url)}" target="_blank" rel="noopener"><img crossorigin="anonymous" onload="window.__changed()" src="${esc(i.image_url)}" alt="${esc(i.title)}" loading="lazy"><span>${esc(i.title)}</span></a>`).join("")}</div>`);
   if (sources.length)
     el.insertAdjacentHTML("beforeend", `<div class="small src"><b>Sources</b>${sources.map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener">[${s.id}] ${esc(s.title)}</a>`).join("")}</div>`);
   if (nearBottom()) toBottom();
+  changed(el);
 }
 
 async function send() {
@@ -174,7 +169,8 @@ async function send() {
 function autosize() { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 160) + "px"; }
 input.addEventListener("input", autosize);
 input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
-$("send").onclick = send;
+$("sendBtn").onclick = send;
+window.__changed = () => changed();
 
 function dropdown(dd, btn, menu, items, get, set) {
   const draw = () => { btn.innerHTML = esc(items.find((i) => i[0] === get())[1]) + `<svg class="sm" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>`; menu.innerHTML = ""; items.forEach(([k, l]) => { const b = document.createElement("button"); b.textContent = l; b.className = k === get() ? "sel" : ""; b.onclick = () => { set(k); dd.classList.remove("open"); sync(); }; menu.append(b); }); };
@@ -231,7 +227,12 @@ $("mic").onclick = async () => {
   } catch (err) { alert("Microphone unavailable: " + err.message); }
 };
 
-await rebuild();
+const bg = $("bg");
+await Promise.all([bg.decode().catch(() => {}), document.fonts && document.fonts.ready]);
+for (const el of [composer, $("sendBtn")]) el.dataset.config = CONFIG;
+lg = await LiquidGlass.init({ root, glassElements: [composer, $("sendBtn")] });
+let tick = false;
+root.addEventListener("scroll", () => { if (!tick) { tick = true; requestAnimationFrame(() => { tick = false; changed(); }); } });
 </script>
 </body>
 </html>
