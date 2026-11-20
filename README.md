@@ -2,7 +2,8 @@
 
 A SvelteKit streaming chatbot powered by OpenRouter and deployed to Cloudflare Pages.
 The model picker is limited to Nemotron 3 Nano Omni (the default), 3.5 Lightning,
-3 Ultra, and 3.5 Super VL.
+3 Ultra, and 3.5 Super VL. The composer also lets you choose low, medium, or high
+thinking effort.
 
 The composer accepts JPEG, PNG, and WebP images, plus TXT, MD, CSV, JSON, and
 LOG files. Up to five files can be attached per message (16 MB total; 8 MB

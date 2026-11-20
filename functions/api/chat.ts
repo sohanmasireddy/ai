@@ -18,6 +18,7 @@ const IMAGE_MODELS = new Set<ModelId>([
 ]);
 
 type ModelId = (typeof MODELS)[number];
+type ThinkingLevel = 'low' | 'medium' | 'high';
 type ContentPart =
 	| { type: 'text'; text: string }
 	| { type: 'image_url'; image_url: { url: string } };
@@ -36,6 +37,10 @@ type PagesContext = {
 
 function isModelId(value: unknown): value is ModelId {
 	return typeof value === 'string' && MODELS.includes(value as ModelId);
+}
+
+function isThinkingLevel(value: unknown): value is ThinkingLevel {
+	return value === 'low' || value === 'medium' || value === 'high';
 }
 
 function isContentPart(value: unknown): value is ContentPart {
@@ -153,7 +158,12 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
 	if (!body || typeof body !== 'object') {
 		return Response.json({ error: 'Request body must be an object.' }, { status: 400 });
 	}
-	const input = body as { messages?: unknown; model?: unknown; webSearch?: unknown };
+	const input = body as {
+		messages?: unknown;
+		model?: unknown;
+		thinkingLevel?: unknown;
+		webSearch?: unknown;
+	};
 	const messages = input.messages;
 	if (
 		!Array.isArray(messages) ||
@@ -170,11 +180,15 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
 	if (input.model !== undefined && !isModelId(input.model)) {
 		return Response.json({ error: 'Choose one of the four supported Nemotron models.' }, { status: 400 });
 	}
+	if (input.thinkingLevel !== undefined && !isThinkingLevel(input.thinkingLevel)) {
+		return Response.json({ error: 'Choose low, medium, or high thinking level.' }, { status: 400 });
+	}
 	if (input.webSearch !== undefined && typeof input.webSearch !== 'boolean') {
 		return Response.json({ error: 'The webSearch option must be a boolean.' }, { status: 400 });
 	}
 
 	const model = isModelId(input.model) ? input.model : DEFAULT_MODEL;
+	const thinkingLevel = isThinkingLevel(input.thinkingLevel) ? input.thinkingLevel : 'medium';
 	const shouldSearch = input.webSearch === true;
 	const imageDataLength = messages.reduce(
 		(total, message) =>
@@ -250,11 +264,13 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
 			});
 		}
 		chatMessages.push(...(messages as ChatCompletionMessageParam[]));
-		const completion = await client.chat.completions.create({
+		const completionRequest = {
 			model,
 			messages: chatMessages,
-			stream: true
-		});
+			reasoning: { effort: thinkingLevel },
+			stream: true as const
+		};
+		const completion = await client.chat.completions.create(completionRequest);
 		const encoder = new TextEncoder();
 		const stream = new ReadableStream<Uint8Array>({
 			async start(controller) {

@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { ArrowUp, Bot, FileText, Globe2, LoaderCircle, Paperclip, Sparkles, X } from 'lucide-svelte';
+	import { ArrowUp, FileText, Globe2, LoaderCircle, Paperclip, X } from 'lucide-svelte';
 
 	type ModelId =
 		| 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free'
 		| 'nvidia/nemotron-3.5-lightning:free'
 		| 'nvidia/nemotron-3-ultra-550b-a55b:free'
 		| 'nvidia/nemotron-3.5-super-vl:free';
+	type ThinkingLevel = 'low' | 'medium' | 'high';
 	type Attachment = {
 		name: string;
 		mimeType: string;
@@ -37,13 +38,9 @@
 	const maxTotalFileSize = 16 * 1024 * 1024;
 	const allowedTextExtensions = new Set(['txt', 'md', 'csv', 'json', 'log']);
 
-	let messages = $state<Message[]>([
-		{
-			role: 'assistant',
-			content: 'Hi! I’m ready to help. What would you like to explore?'
-		}
-	]);
+	let messages = $state<Message[]>([]);
 	let selectedModel = $state<ModelId>(nanoOmniId);
+	let thinkingLevel = $state<ThinkingLevel>('medium');
 	let draft = $state('');
 	let attachments = $state<Attachment[]>([]);
 	let webSearch = $state(false);
@@ -52,6 +49,7 @@
 	let errorMessage = $state('');
 	let messagesElement: HTMLDivElement;
 	let fileInputElement: HTMLInputElement;
+	let promptElement: HTMLTextAreaElement;
 
 	function supportsImages(model: ModelId): boolean {
 		return imageModelIds.has(model);
@@ -213,6 +211,7 @@
 			};
 			messages.push(userMessage);
 			draft = '';
+			requestAnimationFrame(resizePrompt);
 			attachments = [];
 			messages.push({ role: 'assistant', content: '' });
 			const response = await fetch('/api/chat', {
@@ -220,6 +219,7 @@
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({
 					model: selectedModel,
+					thinkingLevel,
 					webSearch,
 					messages: messages.slice(0, -1).map((message) => buildWireMessage(message, supportsImages(selectedModel)))
 				})
@@ -270,6 +270,12 @@
 		}
 	}
 
+	function resizePrompt() {
+		if (!promptElement) return;
+		promptElement.style.height = 'auto';
+		promptElement.style.height = `${Math.min(promptElement.scrollHeight, 160)}px`;
+	}
+
 	$effect(() => {
 		messages.length;
 		messages[messages.length - 1]?.content;
@@ -278,7 +284,7 @@
 </script>
 
 <svelte:head>
-	<title>OpenRouter Chat</title>
+	<title>Orbit Chat</title>
 	<meta
 		name="description"
 		content="A streaming AI chat powered by OpenRouter and deployed on Cloudflare Pages."
@@ -286,35 +292,10 @@
 </svelte:head>
 
 <main class="chat-shell">
-	<header class="topbar">
-		<a class="brand" href="/" aria-label="OpenRouter Chat home">
-			<span class="brand-mark"><Sparkles size={18} strokeWidth={2.2} /></span>
-			<span>orbit<span class="brand-dot">.</span></span>
-		</a>
-		<label class="model-picker">
-			<span class="status-dot"></span>
-			<span class="sr-only">Choose a model</span>
-			<select bind:value={selectedModel} disabled={sending}>
-				{#each models as model}
-					<option value={model.id}>{model.label}</option>
-				{/each}
-			</select>
-		</label>
-	</header>
-
 	<section class="conversation" aria-label="Chat conversation">
-		<div class="conversation-heading">
-			<p class="eyebrow">YOUR AI COMPANION</p>
-			<h1>A little clarity,<br />one message away.</h1>
-			<p class="intro">Ask a question, explore an idea, or just get started.</p>
-		</div>
-
 		<div class="messages" bind:this={messagesElement} aria-live="polite">
 			{#each messages as message, index}
 				<div class:from-user={message.role === 'user'} class="message-row">
-					{#if message.role === 'assistant'}
-						<div class="avatar"><Bot size={17} /></div>
-					{/if}
 					<div class="message-content">
 						{#if message.displayContent ?? message.content}
 							<p>{message.displayContent ?? message.content}</p>
@@ -347,78 +328,98 @@
 			{/each}
 		</div>
 
-		{#if errorMessage}
-			<p class="error-message" role="alert">{errorMessage}</p>
-		{/if}
-
-		<form class="composer" onsubmit={submit}>
-			<label class="sr-only" for="prompt">Message</label>
-			{#if attachments.length}
-				<div class="attachment-list">
-					{#each attachments as attachment, index}
-						<div class="attachment-chip">
-							{#if attachment.dataUrl}
-								<img src={attachment.dataUrl} alt="" />
-							{:else}
-								<FileText size={14} />
-							{/if}
-							<span>{attachment.name}</span>
-							<button type="button" aria-label={`Remove ${attachment.name}`} onclick={() => removeAttachment(index)}>
-								<X size={14} />
-							</button>
-						</div>
-					{/each}
-				</div>
+		<div class="composer-dock">
+			{#if errorMessage}
+				<p class="error-message" role="alert">{errorMessage}</p>
 			{/if}
-			<textarea
-				id="prompt"
-				bind:value={draft}
-				onkeydown={handleKeydown}
-				placeholder="Message orbit..."
-				rows="1"
-				disabled={sending}
-			></textarea>
-			<div class="composer-footer">
-				<div class="composer-actions">
-					<input
-						bind:this={fileInputElement}
-						class="sr-only"
-						type="file"
-						accept="image/jpeg,image/png,image/webp,.txt,.md,.csv,.json,.log"
-						multiple
-						onchange={addFiles}
-					/>
-					<button
-						class="tool-button"
-						type="button"
-						disabled={sending || readingFiles || attachments.length >= 5}
-						aria-label="Attach files or images"
-						onclick={() => fileInputElement.click()}
-					>
-						{#if readingFiles}
-							<LoaderCircle size={16} class="spinner" />
-						{:else}
-							<Paperclip size={16} />
-						{/if}
-					</button>
-					<button
-						class:active={webSearch}
-						class="tool-button search-toggle"
-						type="button"
-						disabled={sending}
-						aria-pressed={webSearch}
-						onclick={() => (webSearch = !webSearch)}
-					>
-						<Globe2 size={15} /> Search web
-					</button>
-				</div>
-				<div class="composer-actions">
-					<p class="keyboard-hint"><span>↵</span> to send <span class="shortcut-separator">·</span> shift + ↵ for a new line</p>
+			<form class="composer" onsubmit={submit}>
+				<label class="sr-only" for="prompt">Message</label>
+				{#if attachments.length}
+					<div class="attachment-list">
+						{#each attachments as attachment, index}
+							<div class="attachment-chip">
+								{#if attachment.dataUrl}
+									<img src={attachment.dataUrl} alt="" />
+								{:else}
+									<FileText size={14} />
+								{/if}
+								<span>{attachment.name}</span>
+								<button type="button" aria-label={`Remove ${attachment.name}`} onclick={() => removeAttachment(index)}>
+									<X size={14} />
+								</button>
+							</div>
+						{/each}
+					</div>
+				{/if}
+				<textarea
+					id="prompt"
+					bind:this={promptElement}
+					bind:value={draft}
+					oninput={resizePrompt}
+					onkeydown={handleKeydown}
+					placeholder="Message..."
+					rows="1"
+					disabled={sending}
+				></textarea>
+				<div class="composer-footer">
+					<div class="composer-controls">
+						<input
+							bind:this={fileInputElement}
+							class="sr-only"
+							type="file"
+							accept="image/jpeg,image/png,image/webp,.txt,.md,.csv,.json,.log"
+							multiple
+							onchange={addFiles}
+						/>
+						<button
+							class="tool-button attach-button"
+							type="button"
+							disabled={sending || readingFiles || attachments.length >= 5}
+							aria-label="Add files"
+							title="Add files"
+							onclick={() => fileInputElement.click()}
+						>
+							{#if readingFiles}
+								<LoaderCircle size={17} class="spinner" />
+							{:else}
+								<Paperclip size={17} />
+							{/if}
+						</button>
+						<label class="select-control">
+							<span class="sr-only">Model</span>
+							<select class="model-select" bind:value={selectedModel} disabled={sending} title="Model">
+								{#each models as model}
+									<option value={model.id}>{model.label}</option>
+								{/each}
+							</select>
+						</label>
+						<label class="select-control">
+							<span class="sr-only">Thinking level</span>
+							<select class="thinking-select" bind:value={thinkingLevel} disabled={sending} title="Thinking level">
+								<option value="low">Low</option>
+								<option value="medium">Medium</option>
+								<option value="high">High</option>
+							</select>
+						</label>
+						<button
+							class:active={webSearch}
+							class="tool-button search-toggle"
+							type="button"
+							disabled={sending}
+							aria-label="Search web with DuckDuckGo"
+							title="Search web"
+							aria-pressed={webSearch}
+							onclick={() => (webSearch = !webSearch)}
+						>
+							<Globe2 size={16} />
+						</button>
+					</div>
 					<button
 						class="send-button"
 						type="submit"
 						disabled={sending || readingFiles || (!draft.trim() && attachments.length === 0)}
 						aria-label={sending ? 'Waiting for response' : 'Send message'}
+						title="Send message"
 					>
 						{#if sending}
 							<LoaderCircle size={18} class="spinner" />
@@ -427,11 +428,10 @@
 						{/if}
 					</button>
 				</div>
-			</div>
-			{#if !supportsImages(selectedModel)}
-				<p class="model-hint">Image uploads are available with Nano Omni and Super VL.</p>
-			{/if}
-		</form>
-		<p class="disclaimer">AI can make mistakes. Check important information.</p>
+				{#if !supportsImages(selectedModel)}
+					<p class="model-hint">Images work with Nano Omni and Super VL.</p>
+				{/if}
+			</form>
+		</div>
 	</section>
 </main>
