@@ -6,7 +6,7 @@
     "build": "vite build",
     "check": "svelte-kit sync && tsc --noEmit",
     "preview": "vite preview",
-    "deploy": "npm run build && wrangler pages deploy build --project-name codespaces-blank"
+    "deploy": "npm run build && wrangler pages deploy build --project-name ai"
   },
   "dependencies": {
     "lucide-svelte": "1.0.1",
