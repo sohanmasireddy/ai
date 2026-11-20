@@ -32,8 +32,8 @@ from OpenRouter using the selected model.
 Create the Pages project once, set its production secret, then deploy:
 
 ```sh
-npx wrangler pages project create ai --production-branch main
-npx wrangler pages secret put OPENROUTER_API_KEY --project-name ai
+npx wrangler pages project create codespaces-blank --production-branch main
+npx wrangler pages secret put OPENROUTER_API_KEY --project-name codespaces-blank
 npm run deploy
 ```
 
