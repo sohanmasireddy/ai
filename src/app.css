@@ -78,15 +78,29 @@ a:focus-visible {
 	color: #d5b78b;
 }
 
-.model-badge {
+.model-picker {
 	display: flex;
 	align-items: center;
-	gap: 9px;
-	padding: 8px 12px;
+	gap: 8px;
+	padding: 6px 10px;
 	border: 1px solid rgb(255 255 255 / 8%);
 	border-radius: 999px;
 	color: #b7b2aa;
 	font-size: 12px;
+}
+
+.model-picker select {
+	max-width: min(52vw, 220px);
+	border: 0;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+
+.model-picker option {
+	background: #1a1917;
+	color: #f3f1ee;
 }
 
 .status-dot {
@@ -191,6 +205,53 @@ h1 {
 	margin: 0;
 }
 
+.message-attachments {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 9px;
+}
+
+.message-attachments img {
+	width: auto;
+	max-width: min(100%, 240px);
+	max-height: 220px;
+	border: 1px solid rgb(255 255 255 / 10%);
+	border-radius: 10px;
+	object-fit: contain;
+}
+
+.message-attachments span {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	color: #b7b2aa;
+	font-size: 12px;
+}
+
+.source-list {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	margin-top: 12px;
+	padding-top: 10px;
+	border-top: 1px solid rgb(255 255 255 / 8%);
+	font-size: 11px;
+}
+
+.source-list span {
+	color: #8e8a82;
+}
+
+.source-list a {
+	color: #d5b78b;
+	text-decoration: none;
+}
+
+.source-list a:hover {
+	text-decoration: underline;
+}
+
 .thinking {
 	display: flex;
 	gap: 4px;
@@ -272,20 +333,114 @@ h1 {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+	gap: 12px;
 }
 
-.composer-footer p {
+.model-hint {
+	margin: 8px 0 0;
+	color: #77736c;
+	font-size: 10px;
+}
+
+.composer-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.keyboard-hint {
 	margin: 0;
 	color: #77736c;
 	font-size: 10px;
 }
 
-.composer-footer p span:first-child {
+.keyboard-hint span:first-child {
 	color: #b7b2aa;
 }
 
 .shortcut-separator {
 	padding: 0 5px;
+}
+
+.tool-button {
+	display: inline-flex;
+	min-height: 32px;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	padding: 0 9px;
+	border: 1px solid rgb(255 255 255 / 9%);
+	border-radius: 10px;
+	background: transparent;
+	color: #aaa59c;
+	font-size: 11px;
+	cursor: pointer;
+	transition:
+		border-color 150ms ease,
+		color 150ms ease,
+		background 150ms ease;
+}
+
+.tool-button:hover:not(:disabled),
+.tool-button.active {
+	border-color: rgb(213 183 139 / 35%);
+	background: rgb(213 183 139 / 8%);
+	color: #d5b78b;
+}
+
+.tool-button:disabled {
+	cursor: not-allowed;
+	opacity: 0.45;
+}
+
+.attachment-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 7px;
+	margin-bottom: 10px;
+}
+
+.attachment-chip {
+	display: inline-flex;
+	max-width: 100%;
+	align-items: center;
+	gap: 7px;
+	padding: 4px 7px;
+	border: 1px solid rgb(255 255 255 / 9%);
+	border-radius: 9px;
+	color: #b7b2aa;
+	font-size: 11px;
+}
+
+.attachment-chip img {
+	width: 22px;
+	height: 22px;
+	border-radius: 5px;
+	object-fit: cover;
+}
+
+.attachment-chip span {
+	max-width: 180px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.attachment-chip button {
+	display: grid;
+	width: 20px;
+	height: 20px;
+	place-items: center;
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
+	color: #8e8a82;
+	cursor: pointer;
+}
+
+.attachment-chip button:hover {
+	background: rgb(255 255 255 / 8%);
+	color: #f3f1ee;
 }
 
 .send-button {
@@ -346,9 +501,14 @@ h1 {
 		height: 64px;
 	}
 
-	.model-badge {
-		padding: 7px 9px;
+	.model-picker {
+		gap: 6px;
+		padding: 6px 8px;
 		font-size: 10px;
+	}
+
+	.model-picker select {
+		max-width: 46vw;
 	}
 
 	.conversation {
@@ -362,5 +522,22 @@ h1 {
 
 	.messages {
 		max-height: 46vh;
+	}
+
+	.composer-footer {
+		align-items: flex-end;
+	}
+
+	.composer-actions {
+		gap: 5px;
+	}
+
+	.search-toggle {
+		padding: 0 7px;
+		font-size: 10px;
+	}
+
+	.keyboard-hint {
+		display: none;
 	}
 }
