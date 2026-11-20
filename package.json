@@ -2,17 +2,18 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
+    "dev:pages": "npm run build && wrangler pages dev build",
     "build": "vite build",
+    "check": "svelte-kit sync && tsc --noEmit",
     "preview": "vite preview",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "npm run build && wrangler pages deploy build --project-name codespaces-blank"
   },
   "dependencies": {
-    "@ai-sdk/svelte": "5.0.177",
-    "ai": "7.0.177",
-    "lucide-svelte": "1.0.1"
+    "lucide-svelte": "1.0.1",
+    "openai": "^5.20.0"
   },
   "devDependencies": {
-    "@sveltejs/adapter-cloudflare": "9.0.0",
+    "@sveltejs/adapter-static": "^4.0.1",
     "@sveltejs/kit": "3.4.0",
     "@sveltejs/vite-plugin-svelte": "7.3.1",
     "@tailwindcss/typography": "0.5.20",
